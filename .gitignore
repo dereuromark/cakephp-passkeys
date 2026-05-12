@@ -1,0 +1,15 @@
+/vendor/
+/composer.lock
+/node_modules/
+/js/node_modules/
+/js/dist/
+/webroot/dist/
+/.phpunit.cache/
+/.phpunit.result.cache
+.phpcs-cache
+/coverage/
+/tests/e2e/test-results/
+/tests/e2e/playwright-report/
+.idea/
+.vscode/
+.DS_Store

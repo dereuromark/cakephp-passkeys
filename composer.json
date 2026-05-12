@@ -1,0 +1,49 @@
+{
+    "name": "dereuromark/cakephp-passkeys",
+    "description": "Public-quality passkey / WebAuthn authentication plugin for CakePHP 5",
+    "license": "MIT",
+    "type": "cakephp-plugin",
+    "keywords": ["cakephp", "passkey", "webauthn", "fido2", "authentication"],
+    "homepage": "https://github.com/dereuromark/cakephp-passkeys",
+    "require": {
+        "php": ">=8.2",
+        "cakephp/cakephp": "^5.2",
+        "cakephp/migrations": "^4.0",
+        "web-auth/webauthn-lib": "^5.0"
+    },
+    "require-dev": {
+        "cakephp/cakephp-codesniffer": "^5.0",
+        "phpunit/phpunit": "^11.0",
+        "phpstan/phpstan": "^1.10",
+        "dereuromark/cakephp-fixture-factories": "^2.0"
+    },
+    "autoload": {
+        "psr-4": { "Passkeys\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Passkeys\\Test\\": "tests/",
+            "TestApp\\": "tests/test_app/src/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "stan": "phpstan analyse",
+        "cs-check": "phpcs --colors -p src/ tests/",
+        "cs-fix": "phpcbf --colors -p src/ tests/"
+    },
+    "scripts-descriptions": {
+        "test": "Run PHPUnit",
+        "stan": "Run PHPStan",
+        "cs-check": "Run PHP_CodeSniffer",
+        "cs-fix": "Auto-fix PHP_CodeSniffer issues"
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "cakephp/plugin-installer": true
+        }
+    }
+}
