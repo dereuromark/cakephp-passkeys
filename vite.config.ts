@@ -2,17 +2,32 @@ import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
 
-const entries = ['core', 'attributes', 'errors', 'bundle', 'react', 'vue', 'alpine', 'stimulus'];
+const esmEntries = ['core', 'attributes', 'errors', 'react', 'vue', 'alpine', 'stimulus'];
 
-export default defineConfig({
+// Two separate builds; vite picks one based on VITE_BUILD_MODE.
+const mode = process.env.VITE_BUILD_MODE ?? 'esm';
+
+export default defineConfig(mode === 'iife' ? {
+    // IIFE bundle for the no-build / PHP-helper script tag path.
+    build: {
+        outDir: 'dist',
+        emptyOutDir: false,
+        lib: {
+            entry: resolve(__dirname, 'js/src/bundle.ts'),
+            formats: ['iife'],
+            name: 'Passkeys',
+            fileName: () => 'bundle.iife.js',
+        },
+        minify: 'esbuild',
+        sourcemap: true,
+    },
+} : {
     plugins: [dts({ rollupTypes: false, entryRoot: 'js/src' })],
     build: {
         outDir: 'dist',
         emptyOutDir: true,
         lib: {
-            entry: Object.fromEntries(
-                entries.map((e) => [e, resolve(__dirname, `js/src/${e}.ts`)])
-            ),
+            entry: Object.fromEntries(esmEntries.map((e) => [e, resolve(__dirname, `js/src/${e}.ts`)])),
             formats: ['es'],
         },
         rollupOptions: {
