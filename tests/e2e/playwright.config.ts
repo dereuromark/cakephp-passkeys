@@ -17,7 +17,12 @@ export default defineConfig({
     workers: 1,
     reporter: process.env.CI ? 'github' : 'list',
     webServer: {
-        command: 'php -S localhost:8765 -t harness/public/',
+        // PHP's built-in server returns a static 404 for paths that look
+        // like static files (e.g. `/passkeys/dist/passkeys.min.js`) unless
+        // it is told to use `index.php` as a router script. Passing it as
+        // the trailing argument lets the harness's `cli-server` branch
+        // stream the plugin bundle on demand.
+        command: 'php -S localhost:8765 -t harness/public/ harness/public/index.php',
         url: 'http://localhost:8765/passkeys/dist/passkeys.min.js',
         timeout: 30_000,
         reuseExistingServer: !process.env.CI,
