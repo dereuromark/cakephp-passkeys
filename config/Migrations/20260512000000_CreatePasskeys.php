@@ -17,7 +17,7 @@ class CreatePasskeys extends BaseMigration
             // credential IDs are <= 1023 bytes per spec, but in practice
             // every shipping authenticator stays well under 191 bytes.
             ->addColumn('credential_id', 'binary', ['limit' => 255, 'null' => false])
-            ->addColumn('public_key', 'blob', ['null' => false])
+            ->addColumn('public_key', 'binary', ['null' => false])
             ->addColumn('aaguid', 'binary', ['limit' => 16, 'null' => true])
             ->addColumn('aaguid_label', 'string', ['limit' => 60, 'null' => true])
             ->addColumn('transports', 'string', ['limit' => 64, 'null' => true])
