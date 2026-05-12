@@ -199,7 +199,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
-        $passkey = $this->fetchPasskeyOwnedBy($id, (int)$user->getUserId());
+        $passkey = $this->fetchPasskeyOwnedBy($id, $user->getUserId());
         $body = (array)$this->getRequest()->getParsedBody();
         $newName = trim((string)($body['name'] ?? ''));
         if ($newName === '') {
@@ -227,7 +227,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post', 'delete']);
         $user = $this->resolveCurrentUser();
-        $passkey = $this->fetchPasskeyOwnedBy($id, (int)$user->getUserId());
+        $passkey = $this->fetchPasskeyOwnedBy($id, $user->getUserId());
         // Capture entity for the event payload BEFORE deletion so listeners
         // can still read its fields.
         $this->fire('afterDelete', $passkey, $user->getPasskeyUserHandle());

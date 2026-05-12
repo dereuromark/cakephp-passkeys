@@ -244,6 +244,14 @@ dead ones from `/settings`.
 - **Browsers:** Chrome/Edge 109+, Firefox 122+, Safari 16+ (macOS 13+,
   iOS 16+).
 
+### Limitations (v0.1)
+
+- **Integer user IDs only.** The migration stores `user_id` as INTEGER
+  and `PasskeyUserInterface::getUserId()` returns `int`. UUID / string
+  primary keys on the host's `Users` table are not yet supported —
+  widening the contract is a v2 enhancement once we have a real-world
+  ask. Open a tracker entry on GitHub if you need this.
+
 > [!NOTE]
 > iOS 16 known limitation. The prepare/finish synchronous
 > user-activation pattern is not currently exposed at the JS API surface;
