@@ -16,6 +16,7 @@ use Migrations\Migrations;
 use Passkeys\Controller\PasskeysController;
 use Passkeys\Event\PasskeyEvent;
 use Passkeys\Service\WebAuthnService;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class PasskeysControllerTest extends TestCase
 {
@@ -104,17 +105,49 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
-     * Master-switch: when `Passkeys.enabled` is false, every controller
-     * action must 404. Hiding the UI is not enough — the JSON API still
-     * being live lets an attacker probe / abuse the surface.
+     * Master-switch: when `Passkeys.enabled` is false, EVERY controller
+     * action must 404 — not just login/start. Hiding the UI is not
+     * enough; a live JSON API can still be probed or abused.
      *
+     * `beforeFilter()` raises NotFoundException before `allowMethod()`
+     * runs, so any HTTP verb should hit the 404 first; we still use the
+     * route's documented verb for realism.
+     *
+     * @param string $verb
+     * @param string $url
      * @return void
      */
-    public function testEndpointsReturn404WhenDisabled(): void
+    #[DataProvider('provideEndpoints')]
+    public function testEndpointsReturn404WhenDisabled(string $verb, string $url): void
     {
         Configure::write('Passkeys.enabled', false);
-        $this->post('/passkeys/login/start');
+        match ($verb) {
+            'post' => $this->post($url),
+            'delete' => $this->delete($url),
+            default => $this->fail("Unhandled verb: {$verb}"),
+        };
         $this->assertResponseCode(404);
+    }
+
+    /**
+     * Each of the 8 plugin endpoints with its documented verb. `rename`
+     * and `delete` carry an `{id}` path segment — the value is irrelevant
+     * because beforeFilter() short-circuits before the action body runs.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function provideEndpoints(): array
+    {
+        return [
+            'registerStart' => ['post', '/passkeys/register/start'],
+            'registerFinish' => ['post', '/passkeys/register/finish'],
+            'loginStart' => ['post', '/passkeys/login/start'],
+            'loginFinish' => ['post', '/passkeys/login/finish'],
+            'reauthStart' => ['post', '/passkeys/reauth/start'],
+            'reauthFinish' => ['post', '/passkeys/reauth/finish'],
+            'rename' => ['post', '/passkeys/rename/1'],
+            'delete' => ['delete', '/passkeys/delete/1'],
+        ];
     }
 
     /**
