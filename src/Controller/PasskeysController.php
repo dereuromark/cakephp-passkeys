@@ -106,9 +106,15 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $this->throttle('passkeys.login.' . $this->getRequest()->clientIp(), 20, 60);
-        $emailHint = (string)$this->getRequest()->getQuery('email', '');
+        // Accept the hint from BOTH the query string (`?email=...` — handy
+        // for prefilled magic links) and the JSON body (`{emailHint: ...}` —
+        // what the bundled JS client sends). Body wins when both are set.
+        $body = (array)$this->getRequest()->getParsedBody();
+        $bodyHint = trim((string)($body['emailHint'] ?? ''));
+        $queryHint = trim((string)$this->getRequest()->getQuery('email', ''));
+        $hint = $bodyHint !== '' ? $bodyHint : $queryHint;
 
-        return $this->json($this->webauthn()->startLogin($emailHint !== '' ? $emailHint : null));
+        return $this->json($this->webauthn()->startLogin($hint !== '' ? $hint : null));
     }
 
     /**

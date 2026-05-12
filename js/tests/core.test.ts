@@ -103,6 +103,32 @@ describe('core', () => {
         expect(body.name).toBe('My laptop');
     });
 
+    it('authenticate posts emailHint in start body when provided', async () => {
+        (globalThis.fetch as any)
+            .mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({ challenge: 'YWJj', allowCredentials: [], challengeKey: 'k' }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({ redirectTo: '/dashboard', mfaSatisfied: true, userId: 1 }),
+            });
+        (navigator.credentials.get as any).mockResolvedValueOnce({
+            id: 'cred-id', rawId: new ArrayBuffer(8), type: 'public-key',
+            response: {
+                authenticatorData: new ArrayBuffer(8),
+                clientDataJSON: new ArrayBuffer(8),
+                signature: new ArrayBuffer(8),
+                userHandle: new ArrayBuffer(8),
+            },
+        });
+        await authenticate({ endpoints: mockEndpoints, emailHint: 'alice@example.com' });
+        const startCall = (globalThis.fetch as any).mock.calls[0];
+        expect(startCall[0]).toBe(mockEndpoints.loginStart);
+        const body = JSON.parse(startCall[1].body);
+        expect(body.emailHint).toBe('alice@example.com');
+    });
+
     it('authenticate posts assertion and returns redirectTo', async () => {
         (globalThis.fetch as any)
             .mockResolvedValueOnce({

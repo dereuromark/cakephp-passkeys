@@ -198,6 +198,79 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
+     * loginStart() must read the email hint from the JSON body (what the
+     * shipped JS client sends as `{emailHint: 'alice@example.com'}`). The
+     * legacy query-string form (`?email=...`) is still supported, but body
+     * wins when both are present.
+     *
+     * @return void
+     */
+    public function testLoginStartReadsEmailHintFromBody(): void
+    {
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->once())
+            ->method('startLogin')
+            ->with('alice@example.com')
+            ->willReturn(['challenge' => 'x', 'challengeKey' => 'k']);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['emailHint' => 'alice@example.com']);
+
+        $controller = new class ($request, $service) extends PasskeysController {
+            public function __construct(
+                ServerRequest $request,
+                private WebAuthnService $stub,
+            ) {
+                parent::__construct($request);
+            }
+
+            protected function webauthn(): WebAuthnService
+            {
+                return $this->stub;
+            }
+        };
+
+        $controller->loginStart();
+    }
+
+    /**
+     * Body hint takes precedence when both query and body carry a value —
+     * this matches the documented "body wins" contract.
+     *
+     * @return void
+     */
+    public function testLoginStartBodyHintWinsOverQuery(): void
+    {
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->once())
+            ->method('startLogin')
+            ->with('body@example.com')
+            ->willReturn(['challenge' => 'x', 'challengeKey' => 'k']);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+            'query' => ['email' => 'query@example.com'],
+        ]))->withParsedBody(['emailHint' => 'body@example.com']);
+
+        $controller = new class ($request, $service) extends PasskeysController {
+            public function __construct(
+                ServerRequest $request,
+                private WebAuthnService $stub,
+            ) {
+                parent::__construct($request);
+            }
+
+            protected function webauthn(): WebAuthnService
+            {
+                return $this->stub;
+            }
+        };
+
+        $controller->loginStart();
+    }
+
+    /**
      * Session-fixation defense: loginFinish() must rotate the session ID
      * before writing any identity-bearing data. We bypass the real WebAuthn
      * ceremony by injecting a stub service that returns a pre-built Passkey,
