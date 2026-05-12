@@ -7,6 +7,7 @@ use Cake\Controller\Controller;
 use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Event\Event;
+use Cake\Event\EventInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Exception\BadRequestException;
 use Cake\Http\Exception\ForbiddenException;
@@ -61,6 +62,24 @@ class PasskeysController extends Controller
         parent::initialize();
         if ($this->components()->has('FormProtection')) {
             $this->components()->unload('FormProtection');
+        }
+    }
+
+    /**
+     * Enforces the `Passkeys.enabled` master switch on every endpoint.
+     * When disabled, the entire controller surface 404s — the plugin's
+     * UI cells already hide themselves; this closes the API edge so a
+     * disabled host cannot leak ceremony surface or be probed via the
+     * passkey routes.
+     *
+     * @param \Cake\Event\EventInterface<\Cake\Controller\Controller> $event
+     * @return void
+     */
+    public function beforeFilter(EventInterface $event): void
+    {
+        parent::beforeFilter($event);
+        if (!Configure::read('Passkeys.enabled')) {
+            throw new NotFoundException();
         }
     }
 

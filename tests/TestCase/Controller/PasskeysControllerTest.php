@@ -33,6 +33,9 @@ class PasskeysControllerTest extends TestCase
         // matching Array engine here for ChallengeStore to write into.
         Cache::drop('passkeys_challenges');
         Cache::setConfig('passkeys_challenges', ['className' => 'Array', 'duration' => 300]);
+        // Reset the master switch — one test toggles it false, others rely
+        // on the default `enabled => true`.
+        Configure::write('Passkeys.enabled', true);
         Configure::write('Passkeys.rpId', 'localhost');
         Configure::write('Passkeys.rpName', 'Test');
         Configure::write('Passkeys.maxPerUser', 5);
@@ -95,6 +98,20 @@ class PasskeysControllerTest extends TestCase
     {
         $this->post('/passkeys/register/start');
         $this->assertResponseCode(401);
+    }
+
+    /**
+     * Master-switch: when `Passkeys.enabled` is false, every controller
+     * action must 404. Hiding the UI is not enough — the JSON API still
+     * being live lets an attacker probe / abuse the surface.
+     *
+     * @return void
+     */
+    public function testEndpointsReturn404WhenDisabled(): void
+    {
+        Configure::write('Passkeys.enabled', false);
+        $this->post('/passkeys/login/start');
+        $this->assertResponseCode(404);
     }
 
     /**
