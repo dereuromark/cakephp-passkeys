@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
 import { resolve } from 'path';
 
-const entries = ['core', 'attributes', 'errors', 'react', 'vue', 'alpine', 'stimulus'];
+const entries = ['core', 'attributes', 'errors', 'bundle', 'react', 'vue', 'alpine', 'stimulus'];
 
 export default defineConfig({
     plugins: [dts({ rollupTypes: false, entryRoot: 'js/src' })],

@@ -19,7 +19,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "typecheck": "tsc --noEmit",
-        "vendor:webroot": "node -e \"const fs=require('fs'); fs.mkdirSync('webroot/dist',{recursive:true}); fs.cpSync('dist/core.js','webroot/dist/passkeys.min.js'); fs.cpSync('dist/core.js.map','webroot/dist/passkeys.min.js.map')\""
+        "vendor:webroot": "node -e \"const fs=require('fs'); fs.mkdirSync('webroot/dist',{recursive:true}); fs.cpSync('dist/bundle.js','webroot/dist/passkeys.min.js'); fs.cpSync('dist/bundle.js.map','webroot/dist/passkeys.min.js.map')\""
     },
     "peerDependencies": {
         "react": ">=18",
