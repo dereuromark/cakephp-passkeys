@@ -4,9 +4,31 @@
     "description": "Browser-side helpers for the cakephp-passkeys plugin",
     "type": "module",
     "license": "MIT",
+    "author": {
+        "name": "Mark Scherer",
+        "url": "https://www.dereuromark.de"
+    },
+    "homepage": "https://github.com/dereuromark/cakephp-passkeys",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/dereuromark/cakephp-passkeys.git"
+    },
+    "bugs": {
+        "url": "https://github.com/dereuromark/cakephp-passkeys/issues"
+    },
+    "keywords": [
+        "cakephp",
+        "passkey",
+        "webauthn",
+        "fido2",
+        "authentication",
+        "passwordless"
+    ],
     "files": [
         "dist",
-        "README.md"
+        "README.md",
+        "LICENSE",
+        "CHANGELOG.md"
     ],
     "exports": {
         ".": {

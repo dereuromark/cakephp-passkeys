@@ -1,0 +1,26 @@
+# Normalize line endings across platforms — required for deterministic
+# checksums on tarballs that Packagist generates.
+* text=auto
+
+# Files that should never reach the composer tarball. `export-ignore` is
+# the canonical way to exclude dev infrastructure from `composer install`
+# downloads; the package only needs the runtime code + docs + license.
+/.editorconfig    export-ignore
+/.gitattributes   export-ignore
+/.gitignore       export-ignore
+/.github/         export-ignore
+/.phpcs.cache     export-ignore
+/.phpunit.cache/  export-ignore
+/CONTRIBUTING.md  export-ignore
+/SECURITY.md      export-ignore
+/docs/            export-ignore
+/js/              export-ignore
+/node_modules/    export-ignore
+/package.json     export-ignore
+/package-lock.json export-ignore
+/phpcs.xml        export-ignore
+/phpstan.neon     export-ignore
+/phpunit.xml.dist export-ignore
+/tests/           export-ignore
+/tsconfig.json    export-ignore
+/vite.config.ts   export-ignore
