@@ -22,6 +22,7 @@ return [
         ],
         'cache' => 'default',
         'mfa' => ['sessionFlag' => 'Passkeys.mfa_satisfied'],
+        'session' => ['userIdKey' => 'Auth.id'],
         'rateLimiter' => null,
         'urlPrefix' => '/passkeys',
         'authorize' => null,

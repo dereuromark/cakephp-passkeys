@@ -159,9 +159,13 @@ class PasskeysController extends Controller
             true,
         );
         // Minimum-viable hand-off: the host's own auth middleware reads
-        // `Auth.id` (or subscribes to `Passkeys.afterLogin`) to populate
-        // its identity object. v2 may expose a richer integration hook.
-        $session->write('Auth.id', $passkey->user_id);
+        // the configured session key (or subscribes to `Passkeys.afterLogin`)
+        // to populate its identity object. The default `Auth.id` matches
+        // the legacy CakePHP AuthComponent shape; hosts using
+        // cakephp/authentication typically point this at `Identity.id`
+        // or similar. v2 may expose a richer integration hook.
+        $userIdKey = (string)Configure::read('Passkeys.session.userIdKey', 'Auth.id');
+        $session->write($userIdKey, $passkey->user_id);
         $this->fire('afterLogin', $passkey, (string)$passkey->user_id);
 
         return $this->json([

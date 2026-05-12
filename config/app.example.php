@@ -69,6 +69,18 @@ return [
             'sessionFlag' => 'Passkeys.mfa_satisfied',
         ],
 
+        // Session hand-off path the plugin writes the authenticated user
+        // id to on successful passkey login. Match your host's auth shape:
+        //   - cakephp/authentication (modern):  'Identity.id'
+        //   - legacy AuthComponent:             'Auth.id' (default)
+        //   - custom middleware:                whatever your stack reads
+        // The plugin also fires a `Passkeys.afterLogin` event — subscribers
+        // can ignore the session write entirely and build the identity
+        // payload themselves.
+        'session' => [
+            'userIdKey' => 'Auth.id',
+        ],
+
         // Bind your own RateLimiterInterface implementation. The plugin
         // ships NullRateLimiter (always allows). Recommended: protect
         // registerStart + loginStart paths against abuse.

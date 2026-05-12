@@ -42,6 +42,9 @@ class PasskeysControllerTest extends TestCase
         Configure::write('Passkeys.challengeTtl', 300);
         Configure::write('Passkeys.cache', 'default');
         Configure::write('Passkeys.tenancy.column', null);
+        // Reset the session-key override — one test overrides this to a
+        // non-default path, others rely on the default `Auth.id`.
+        Configure::write('Passkeys.session.userIdKey', 'Auth.id');
         Configure::write('Passkeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -374,6 +377,96 @@ class PasskeysControllerTest extends TestCase
             $authIndex,
             $renewIndex,
             'renew() must run BEFORE Auth.id is written (session-fixation guard)',
+        );
+    }
+
+    /**
+     * loginFinish() must honor `Passkeys.session.userIdKey` — hosts using
+     * cakephp/authentication map identity to `Identity.id`, not the legacy
+     * AuthComponent's `Auth.id`. The previous hard-coded path silently
+     * dropped the login for those hosts.
+     *
+     * @return void
+     */
+    public function testLoginFinishWritesConfiguredSessionKey(): void
+    {
+        Configure::write('Passkeys.session.userIdKey', 'Identity.user_id');
+
+        $passkey = $this->getTableLocator()->get('Passkeys.Passkeys')->newEntity(
+            [
+                'user_id' => 1,
+                'credential_id' => random_bytes(16),
+                'public_key' => random_bytes(77),
+                'name' => 'Stub',
+                'sign_count' => 0,
+            ],
+            ['accessibleFields' => ['*' => true]],
+        );
+        $this->getTableLocator()->get('Passkeys.Passkeys')->saveOrFail($passkey);
+
+        $session = new class extends Session {
+            /**
+             * @var array<int, string>
+             */
+            public array $log = [];
+
+            public function __construct()
+            {
+                // Skip parent constructor — we only care about the write path.
+            }
+
+            /**
+             * @return void
+             */
+            public function renew(): void
+            {
+                $this->log[] = 'renew';
+            }
+
+            /**
+             * @param string|array<string, mixed>|null $name
+             * @param mixed $value
+             * @return void
+             */
+            public function write(array|string|null $name, mixed $value = null): void
+            {
+                $this->log[] = 'write:' . (is_array($name) ? 'array' : (string)$name);
+            }
+        };
+
+        $service = $this->createMock(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+            'session' => $session,
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'x']);
+
+        $controller = new class ($request, $service) extends PasskeysController {
+            public function __construct(
+                ServerRequest $request,
+                private WebAuthnService $stub,
+            ) {
+                parent::__construct($request);
+            }
+
+            protected function webauthn(): WebAuthnService
+            {
+                return $this->stub;
+            }
+        };
+
+        $controller->loginFinish();
+
+        $this->assertContains(
+            'write:Identity.user_id',
+            $session->log,
+            'loginFinish() must write to the configured Passkeys.session.userIdKey path',
+        );
+        $this->assertNotContains(
+            'write:Auth.id',
+            $session->log,
+            'loginFinish() must NOT write to the legacy default when a custom key is configured',
         );
     }
 
