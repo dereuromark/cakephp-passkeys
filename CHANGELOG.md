@@ -23,13 +23,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `?email=` query string. Body wins when both are present.
 - **Master switch: `Passkeys.enabled = false` now 404s every controller
   endpoint.** Previously the flag only hid UI cells while the JSON API
-  stayed live and probable.
+  stayed live and probable. Test coverage widened to a dataProvider
+  hitting all 8 endpoints with their documented verbs.
 - **JS: `PasskeysHelper::reauthGuard()` forms now actually trigger the
   reauth ceremony on submit.** The binder previously rendered the
   attribute but no client wired it up.
+- **Helper: `PasskeysHelper::script()` now honors `Passkeys.urlPrefix`
+  when emitting the bundled JS URL.** Hosts that mount the plugin
+  under a custom prefix (e.g. `/auth/passkeys`) previously saw the
+  asset 404 because the path was hard-coded to `/passkeys/dist/...`.
 
 ### Changed
 
+- **`Passkeys.session.userIdKey` is now configurable** (default
+  `Auth.id`). `loginFinish()` writes the authenticated user id to
+  this session path on a successful ceremony. Hosts using
+  `cakephp/authentication` typically point this at `Identity.id` or
+  similar; the default preserves the legacy `AuthComponent` shape so
+  existing setups are unaffected. Hosts that subscribe to
+  `Passkeys.afterLogin` can ignore this entirely.
 - `PasskeyUserInterface::getUserId()` narrowed from `int|string` to
   `int`. Several controller call sites already cast to `int`, and the
   migration stores `user_id` as INTEGER — the previous contract lied.

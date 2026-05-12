@@ -74,9 +74,20 @@ return [
         ],
         'maxPerUser' => (int)env('PASSKEYS_MAX_PER_USER', 10),
         'challengeTtl' => (int)env('PASSKEYS_CHALLENGE_TTL', 300),
+        // Where the plugin hands the authenticated user id to your host
+        // on a successful passkey login. Match your auth middleware's
+        // session shape:
+        //   - cakephp/authentication (modern):  'Identity.id'
+        //   - legacy AuthComponent (default):   'Auth.id'
+        // The plugin also fires Passkeys.afterLogin — subscribe there
+        // to skip the session write entirely and build identity yourself.
+        'session' => ['userIdKey' => 'Auth.id'],
     ],
 ];
 ```
+
+`config/app.example.php` in the plugin lists every supported key with
+inline notes; copy from it rather than guessing.
 
 ### 3. CSRF + FormProtection skip
 
@@ -189,6 +200,13 @@ For the zero-build path:
 
 serves a 6 kB IIFE bundle (2.18 kB gzipped) that auto-binds
 `data-passkey-*` attributes on `DOMContentLoaded`.
+
+> [!NOTE]
+> `Passkeys.urlPrefix` controls **both** the route mount point AND the
+> asset URL. If you set `'urlPrefix' => '/auth/passkeys'` to namespace
+> the eight endpoints under a custom prefix, the helper's `script()`
+> tag automatically points at `/auth/passkeys/dist/passkeys.min.js`.
+> No additional asset config is required.
 
 ## Events
 
