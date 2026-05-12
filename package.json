@@ -1,0 +1,47 @@
+{
+    "name": "@dereuromark/cakephp-passkeys",
+    "version": "1.0.0",
+    "description": "Browser-side helpers for the cakephp-passkeys plugin",
+    "type": "module",
+    "license": "MIT",
+    "files": ["dist", "README.md"],
+    "exports": {
+        ".": { "types": "./dist/core.d.ts", "import": "./dist/core.js" },
+        "./attributes": { "types": "./dist/attributes.d.ts", "import": "./dist/attributes.js" },
+        "./errors": { "types": "./dist/errors.d.ts", "import": "./dist/errors.js" },
+        "./react": { "types": "./dist/react.d.ts", "import": "./dist/react.js" },
+        "./vue": { "types": "./dist/vue.d.ts", "import": "./dist/vue.js" },
+        "./alpine": { "types": "./dist/alpine.d.ts", "import": "./dist/alpine.js" },
+        "./stimulus": { "types": "./dist/stimulus.d.ts", "import": "./dist/stimulus.js" }
+    },
+    "scripts": {
+        "build": "vite build",
+        "test": "vitest run",
+        "test:watch": "vitest",
+        "typecheck": "tsc --noEmit",
+        "vendor:webroot": "node -e \"const fs=require('fs'); fs.mkdirSync('webroot/dist',{recursive:true}); fs.cpSync('dist/core.js','webroot/dist/passkeys.min.js'); fs.cpSync('dist/core.js.map','webroot/dist/passkeys.min.js.map')\""
+    },
+    "peerDependencies": {
+        "react": ">=18",
+        "vue": ">=3",
+        "alpinejs": ">=3",
+        "@hotwired/stimulus": ">=3"
+    },
+    "peerDependenciesMeta": {
+        "react": { "optional": true },
+        "vue": { "optional": true },
+        "alpinejs": { "optional": true },
+        "@hotwired/stimulus": { "optional": true }
+    },
+    "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@vitest/coverage-v8": "^2.0.0",
+        "happy-dom": "^15.0.0",
+        "react": "^18.0.0",
+        "typescript": "^5.6.0",
+        "vite": "^5.4.0",
+        "vite-plugin-dts": "^4.0.0",
+        "vitest": "^2.0.0",
+        "vue": "^3.4.0"
+    }
+}
