@@ -1,0 +1,75 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: dereuromark/cakephp-passkeys\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: en_US\n"
+
+msgid "Add a passkey"
+msgstr "Add a passkey"
+
+msgid "Add a passkey to skip the password and 2FA prompt on this device."
+msgstr "Add a passkey to skip the password and 2FA prompt on this device."
+
+msgid "Add another passkey"
+msgstr "Add another passkey"
+
+msgid "Added"
+msgstr "Added"
+
+msgid "Delete"
+msgstr "Delete"
+
+msgid "Delete this passkey?"
+msgstr "Delete this passkey?"
+
+msgid "Last used"
+msgstr "Last used"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Name cannot be empty."
+msgstr "Name cannot be empty."
+
+msgid "Not now"
+msgstr "Not now"
+
+msgid "Passkey"
+msgstr "Passkey"
+
+msgid "Passkeys"
+msgstr "Passkeys"
+
+msgid "Passkeys are a faster, phishing-resistant way to sign in. They live on your device and unlock with your fingerprint, face, or PIN."
+msgstr "Passkeys are a faster, phishing-resistant way to sign in. They live on your device and unlock with your fingerprint, face, or PIN."
+
+msgid "Reauthentication failed."
+msgstr "Reauthentication failed."
+
+msgid "Rename"
+msgstr "Rename"
+
+msgid "Sign in faster next time"
+msgstr "Sign in faster next time"
+
+msgid "Sign in with a passkey"
+msgstr "Sign in with a passkey"
+
+msgid "Too many attempts — try again later."
+msgstr "Too many attempts — try again later."
+
+msgid "Type"
+msgstr "Type"
+
+msgid "What's a passkey?"
+msgstr "What's a passkey?"
+
+msgid "You haven't added any passkeys yet."
+msgstr "You haven't added any passkeys yet."
+
+msgid "You've reached your limit of {0} passkeys."
+msgstr "You've reached your limit of {0} passkeys."
+
+msgid "never"
+msgstr "never"
