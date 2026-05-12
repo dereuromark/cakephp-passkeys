@@ -37,8 +37,12 @@ ConnectionManager::setConfig('test', [
     'cacheMetadata' => false,
     'quoteIdentifiers' => true,
 ]);
+ConnectionManager::alias('test', 'default');
 
 Cache::setConfig('default', ['className' => 'Array']);
+Cache::setConfig('_cake_core_', ['className' => 'Array']);
+Cache::setConfig('_cake_model_', ['className' => 'Array']);
+Cache::setConfig('_cake_translations_', ['className' => 'Array']);
 
 Log::setConfig('debug', [
     'className' => FileLog::class,
