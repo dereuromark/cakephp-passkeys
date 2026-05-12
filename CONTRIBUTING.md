@@ -54,3 +54,11 @@ Refresh source:
 
 For plugin releases, open a PR with the regenerated JSON so device
 labels stay current.
+
+## Release checklist
+
+1. `npm run build && npm run vendor:webroot` — produces `webroot/dist/passkeys.min.js`.
+2. `git add webroot/dist/ && git commit -m "build: vendor dist for vX.Y.Z"`.
+3. Update CHANGELOG.md's `Unreleased` heading to `[X.Y.Z] - YYYY-MM-DD`.
+4. `git tag vX.Y.Z && git push --tags`.
+5. CI publishes to npm. Packagist webhook auto-picks up the tag.
