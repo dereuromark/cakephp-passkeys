@@ -1,8 +1,12 @@
 <?php
 declare(strict_types=1);
 
+use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Datasource\ConnectionManager;
+use Cake\Log\Engine\FileLog;
+use Cake\Log\Log;
+use Cake\Utility\Security;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
 
@@ -34,4 +38,19 @@ ConnectionManager::setConfig('test', [
     'quoteIdentifiers' => true,
 ]);
 
-\Cake\Cache\Cache::setConfig('default', ['className' => 'Array']);
+Cache::setConfig('default', ['className' => 'Array']);
+
+Log::setConfig('debug', [
+    'className' => FileLog::class,
+    'path' => LOGS,
+    'file' => 'debug',
+    'levels' => ['notice', 'info', 'debug'],
+]);
+Log::setConfig('error', [
+    'className' => FileLog::class,
+    'path' => LOGS,
+    'file' => 'error',
+    'levels' => ['warning', 'error', 'critical', 'alert', 'emergency'],
+]);
+
+Security::setSalt('passkeys-plugin-test-salt-not-secret-not-prod');
