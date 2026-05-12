@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Security: session ID is now renewed on passkey login** before any
+  identity-bearing data is written to the session. Closes the
+  session-fixation hole where a pre-seeded cookie could be promoted to
+  an authenticated session.
+- **Security: `Passkeys.challengeTtl` is now actually honored.** The
+  plugin registers a dedicated `passkeys_challenges` cache engine on
+  bootstrap with `duration` pinned to the configured TTL; previously
+  Cake's default cache duration applied and challenges could outlive
+  their intended window.
+- **API: `loginStart` now accepts `emailHint` from the JSON body** (the
+  shape the shipped JS client sends), in addition to the legacy
+  `?email=` query string. Body wins when both are present.
+- **Master switch: `Passkeys.enabled = false` now 404s every controller
+  endpoint.** Previously the flag only hid UI cells while the JSON API
+  stayed live and probable.
+- **JS: `PasskeysHelper::reauthGuard()` forms now actually trigger the
+  reauth ceremony on submit.** The binder previously rendered the
+  attribute but no client wired it up.
+
+### Changed
+
+- `PasskeyUserInterface::getUserId()` narrowed from `int|string` to
+  `int`. Several controller call sites already cast to `int`, and the
+  migration stores `user_id` as INTEGER — the previous contract lied.
+  UUID / string IDs are not supported in v0.1; see `README.md` under
+  *Limitations*.
+
 ### Added
 
 - Initial public release.
