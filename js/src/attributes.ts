@@ -12,7 +12,7 @@
  * we switch to a prefetch-on-mouseenter strategy.
  */
 
-import { authenticate, conditional, isConditionalSupported, isSupported, register } from './core';
+import { authenticate, conditional, isConditionalSupported, isSupported, reauth, register } from './core';
 import type { Endpoints } from './types';
 
 export function bind(root: ParentNode = document): void {
@@ -49,6 +49,30 @@ export function bind(root: ParentNode = document): void {
                 if (result.redirectTo) window.location.assign(result.redirectTo);
             } catch (e) {
                 announceError(e);
+            }
+        });
+    });
+
+    // Forms wrapped by PasskeysHelper::reauthGuard($action) carry a
+    // `data-passkey-reauth-required` attribute naming the action. On submit
+    // we run the reauth ceremony; on success we set a sentinel and call
+    // form.submit() so the second pass goes through unblocked.
+    root.querySelectorAll<HTMLFormElement>('[data-passkey-reauth-required]').forEach((form) => {
+        if (form.dataset.passkeyBound === '1') return;
+        form.dataset.passkeyBound = '1';
+        form.addEventListener('submit', async (e) => {
+            if (form.dataset.passkeyReauthDone === '1') {
+                // Second pass after a successful ceremony — let the form go.
+                return;
+            }
+            e.preventDefault();
+            const action = form.dataset.passkeyReauthRequired || 'default';
+            try {
+                await reauth({ endpoints, action });
+                form.dataset.passkeyReauthDone = '1';
+                form.submit();
+            } catch (err) {
+                announceError(err);
             }
         });
     });

@@ -63,4 +63,23 @@ describe('attributes binder', () => {
         const btn = document.querySelector('[data-passkey-register]') as HTMLButtonElement;
         expect(btn.dataset.passkeyBound).toBeUndefined();
     });
+
+    it('binds a submit listener on reauth-required forms', () => {
+        document.body.innerHTML = `
+            <meta name="passkeys-endpoints" content='${JSON.stringify(endpoints)}'>
+            <form data-passkey-reauth-required="delete-account">
+                <button type="submit">Delete</button>
+            </form>
+        `;
+        bind();
+        const form = document.querySelector('form[data-passkey-reauth-required]') as HTMLFormElement;
+        expect(form.dataset.passkeyBound).toBe('1');
+        // Submitting the form without a passkey ceremony should be prevented
+        // (we don't have navigator.credentials.get to mock here cleanly, but
+        // verifying preventDefault is called is enough to confirm the handler
+        // intercepted the event).
+        const ev = new Event('submit', { cancelable: true, bubbles: true });
+        form.dispatchEvent(ev);
+        expect(ev.defaultPrevented).toBe(true);
+    });
 });
