@@ -1,6 +1,6 @@
 {
     "name": "@dereuromark/cakephp-passkeys",
-    "version": "1.0.0",
+    "version": "0.1.0",
     "description": "Browser-side helpers for the cakephp-passkeys plugin",
     "type": "module",
     "license": "MIT",
