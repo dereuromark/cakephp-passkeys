@@ -22,6 +22,9 @@ class PasskeysHelperTest extends TestCase
     {
         parent::setUp();
         Configure::write('Passkeys.enabled', true);
+        // Reset the URL prefix to the default — one test toggles it to
+        // /auth/passkeys to prove the helper honors the override.
+        Configure::write('Passkeys.urlPrefix', '/passkeys');
         Router::reload();
         $builder = Router::createRouteBuilder('/');
         (new PasskeysPlugin())->routes($builder);
@@ -39,6 +42,22 @@ class PasskeysHelperTest extends TestCase
         $html = $this->helper->script();
         $this->assertStringContainsString('passkeys.min.js', $html);
         $this->assertStringContainsString('nonce="abc123"', $html);
+    }
+
+    /**
+     * The asset URL must inherit `Passkeys.urlPrefix`. A host that mounts
+     * the plugin under `/auth/passkeys` (e.g. for tidy SSO-style namespacing)
+     * would otherwise 404 on the bundled JS because the helper hard-coded
+     * `/passkeys/dist/...`.
+     *
+     * @return void
+     */
+    public function testScriptHonorsCustomUrlPrefix(): void
+    {
+        Configure::write('Passkeys.urlPrefix', '/auth/passkeys');
+        $html = $this->helper->script();
+        $this->assertStringContainsString('/auth/passkeys/dist/passkeys.min.js', $html);
+        $this->assertStringNotContainsString('"/passkeys/dist/', $html);
     }
 
     /**

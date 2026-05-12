@@ -28,7 +28,12 @@ class PasskeysHelper extends Helper
             return '';
         }
         $nonce = $this->getCspNonce();
-        $src = Router::url('/passkeys/dist/passkeys.min.js', true);
+        // Honor `Passkeys.urlPrefix` — the routes mount under that prefix,
+        // and so does the bundled JS asset served from /webroot/dist. A
+        // hard-coded /passkeys path 404s on hosts that remapped to
+        // /auth/passkeys or similar.
+        $prefix = rtrim((string)Configure::read('Passkeys.urlPrefix', '/passkeys'), '/');
+        $src = Router::url($prefix . '/dist/passkeys.min.js', true);
         $nonceAttr = $nonce !== null ? sprintf(' nonce="%s"', $this->escape($nonce)) : '';
 
         return sprintf('<script src="%s"%s></script>', $this->escape($src), $nonceAttr);
