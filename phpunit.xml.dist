@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.0/phpunit.xsd"
+    colors="true"
+    processIsolation="false"
+    stopOnFailure="false"
+    bootstrap="tests/bootstrap.php"
+    cacheDirectory=".phpunit.cache"
+>
+    <testsuites>
+        <testsuite name="Plugin">
+            <directory>tests/TestCase/</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory suffix=".php">src/</directory>
+        </include>
+    </source>
+    <php>
+        <env name="DB_URL" value="sqlite:///:memory:"/>
+        <env name="APP_ENCODING" value="UTF-8"/>
+        <env name="WEBAUTHN_RP_ID" value="localhost"/>
+        <env name="WEBAUTHN_RP_NAME" value="Test"/>
+    </php>
+</phpunit>
