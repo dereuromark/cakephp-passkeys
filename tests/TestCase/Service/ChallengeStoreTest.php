@@ -5,7 +5,10 @@ namespace Passkeys\Test\TestCase\Service;
 
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
+use Cake\Http\BaseApplication;
+use Cake\Http\MiddlewareQueue;
 use Cake\TestSuite\TestCase;
+use Passkeys\PasskeysPlugin;
 use Passkeys\Service\ChallengeStore;
 
 class ChallengeStoreTest extends TestCase
@@ -16,6 +19,38 @@ class ChallengeStoreTest extends TestCase
         Cache::clear('default');
         Configure::write('Passkeys.cache', 'default');
         Configure::write('Passkeys.challengeTtl', 300);
+        // The plugin bootstrap registers `passkeys_challenges` against the
+        // base engine; re-register here so unit tests of ChallengeStore can
+        // run without booting the full plugin.
+        Cache::drop('passkeys_challenges');
+        Cache::setConfig('passkeys_challenges', ['className' => 'Array', 'duration' => 300]);
+    }
+
+    protected function tearDown(): void
+    {
+        Cache::drop('passkeys_challenges');
+        parent::tearDown();
+    }
+
+    public function testBootstrapRegistersChallengeCacheWithConfiguredTtl(): void
+    {
+        // Drop the test's pre-registration, then boot the plugin and re-assert.
+        Cache::drop('passkeys_challenges');
+        Configure::write('Passkeys.cache', 'default');
+        Configure::write('Passkeys.challengeTtl', 300);
+
+        $app = new class (CONFIG) extends BaseApplication
+        {
+            public function middleware(MiddlewareQueue $m): MiddlewareQueue
+            {
+                return $m;
+            }
+        };
+        (new PasskeysPlugin())->bootstrap($app);
+
+        $config = Cache::getConfig('passkeys_challenges');
+        $this->assertIsArray($config);
+        $this->assertSame(300, (int)($config['duration'] ?? 0));
     }
 
     public function testPutAndConsumeReturnsValue(): void

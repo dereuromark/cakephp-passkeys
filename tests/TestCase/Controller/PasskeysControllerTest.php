@@ -28,6 +28,11 @@ class PasskeysControllerTest extends TestCase
     {
         parent::setUp();
         Cache::clear('default');
+        // The plugin bootstrap registers this dedicated challenge cache; in
+        // integration tests we don't always boot the plugin, so register a
+        // matching Array engine here for ChallengeStore to write into.
+        Cache::drop('passkeys_challenges');
+        Cache::setConfig('passkeys_challenges', ['className' => 'Array', 'duration' => 300]);
         Configure::write('Passkeys.rpId', 'localhost');
         Configure::write('Passkeys.rpName', 'Test');
         Configure::write('Passkeys.maxPerUser', 5);

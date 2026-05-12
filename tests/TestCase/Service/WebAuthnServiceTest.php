@@ -24,6 +24,11 @@ class WebAuthnServiceTest extends TestCase
     {
         parent::setUp();
         Cache::clear('default');
+        // ChallengeStore writes to a dedicated `passkeys_challenges` engine
+        // (registered by the plugin's bootstrap with the configured TTL);
+        // mirror that here so service tests don't have to boot the plugin.
+        Cache::drop('passkeys_challenges');
+        Cache::setConfig('passkeys_challenges', ['className' => 'Array', 'duration' => 300]);
         Configure::write('Passkeys.rpId', 'localhost');
         Configure::write('Passkeys.rpName', 'Test');
         Configure::write('Passkeys.maxPerUser', 5);
@@ -51,6 +56,7 @@ class WebAuthnServiceTest extends TestCase
     protected function tearDown(): void
     {
         $this->getTableLocator()->clear();
+        Cache::drop('passkeys_challenges');
         parent::tearDown();
     }
 

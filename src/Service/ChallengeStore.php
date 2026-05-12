@@ -4,7 +4,6 @@ declare(strict_types=1);
 namespace Passkeys\Service;
 
 use Cake\Cache\Cache;
-use Cake\Core\Configure;
 
 class ChallengeStore
 {
@@ -44,10 +43,15 @@ class ChallengeStore
     }
 
     /**
-     * @return string Cache engine name configured under Passkeys.cache.
+     * The plugin's bootstrap clones the host's chosen `Passkeys.cache` engine
+     * into a `passkeys_challenges` engine with `duration` pinned to
+     * `Passkeys.challengeTtl`. Always write to that dedicated engine so
+     * stale challenges expire on schedule.
+     *
+     * @return string
      */
     private function engine(): string
     {
-        return (string)Configure::read('Passkeys.cache', 'default');
+        return 'passkeys_challenges';
     }
 }

@@ -55,7 +55,12 @@ return [
             'timeout' => 60_000,               // ms; passed to OS dialog
         ],
 
-        'cache' => 'default',                  // Cake CacheEngine name
+        // Base Cake CacheEngine config to clone for the WebAuthn challenge
+        // store. On bootstrap the plugin registers a dedicated
+        // `passkeys_challenges` engine that inherits this engine's settings
+        // but overrides `duration` with `challengeTtl` above — the only
+        // way to honor the configured TTL without changing every write site.
+        'cache' => 'default',
 
         'mfa' => [
             // Session key the plugin writes on a UV-verified login. Your
