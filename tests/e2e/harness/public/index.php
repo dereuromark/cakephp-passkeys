@@ -82,6 +82,14 @@ define('CORE_PATH', CAKE_CORE_INCLUDE_PATH . DIRECTORY_SEPARATOR);
 @mkdir(LOGS, 0777, true);
 @mkdir(CACHE, 0777, true);
 
+// Drop the previous run's SQLite file on the very first request a fresh
+// server picks up. Without this, a stale `passkeys` table from an earlier
+// run plus an empty migrations ledger collide on the next test run.
+if (!isset($_SERVER['HARNESS_DB_INITIALIZED'])) {
+    @unlink(TMP . 'e2e.sqlite');
+    $_SERVER['HARNESS_DB_INITIALIZED'] = '1';
+}
+
 Configure::write('debug', true);
 Configure::write('App', [
     'namespace' => 'HarnessApp',
@@ -129,8 +137,14 @@ $conn = ConnectionManager::get('default');
 $conn->execute('CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, email VARCHAR(255), name VARCHAR(255))');
 $conn->execute("INSERT OR IGNORE INTO users (id, email, name) VALUES (1, 'alice@example.com', 'Alice')");
 
-$migrations = new Migrations(['connection' => 'default', 'plugin' => 'Passkeys']);
-$migrations->migrate();
+// The harness DB persists across requests in TMP/e2e.sqlite. Re-running
+// the plugin migration each request would error with "table already
+// exists" because the phinxlog ledger lives in a separate connection.
+// Migrate only on the first request (= when the table is missing).
+if (!in_array('passkeys', $conn->getSchemaCollection()->listTables(), true)) {
+    $migrations = new Migrations(['connection' => 'default', 'plugin' => 'Passkeys']);
+    $migrations->migrate();
+}
 
 /**
  * Anonymous identity object used to feed `request->getAttribute('identity')`
