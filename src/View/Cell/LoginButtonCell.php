@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\View\Cell;
@@ -16,6 +17,7 @@ class LoginButtonCell extends Cell
     /**
      * @param string|null $class Optional CSS class override.
      * @param string|null $label Optional button label override.
+     *
      * @return void
      */
     public function display(?string $class = null, ?string $label = null): void

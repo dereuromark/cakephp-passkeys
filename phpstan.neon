@@ -8,4 +8,5 @@ parameters:
         - tests
     excludePaths:
         - tests/test_app
+        - tests/e2e/harness
     treatPhpDocTypesAsCertain: false

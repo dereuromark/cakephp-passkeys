@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Controller;
@@ -32,14 +33,14 @@ use function Cake\I18n\__d;
  * WebAuthn / passkey ceremony controller.
  *
  * Eight JSON actions:
- *  - registerStart  POST   /passkeys/register/start   (auth required)
- *  - registerFinish POST   /passkeys/register/finish  (auth required)
- *  - loginStart     POST   /passkeys/login/start      (anonymous)
- *  - loginFinish    POST   /passkeys/login/finish     (anonymous)
- *  - reauthStart    POST   /passkeys/reauth/start     (auth required)
- *  - reauthFinish   POST   /passkeys/reauth/finish    (auth required)
- *  - rename         POST   /passkeys/rename/{id}      (auth required, owner-only)
- *  - delete         DELETE /passkeys/delete/{id}      (auth required, owner-only)
+ *  - registerStart POST /passkeys/register/start (auth required)
+ *  - registerFinish POST /passkeys/register/finish (auth required)
+ *  - loginStart POST /passkeys/login/start (anonymous)
+ *  - loginFinish POST /passkeys/login/finish (anonymous)
+ *  - reauthStart POST /passkeys/reauth/start (auth required)
+ *  - reauthFinish POST /passkeys/reauth/finish (auth required)
+ *  - rename POST /passkeys/rename/{id} (auth required, owner-only)
+ *  - delete DELETE /passkeys/delete/{id} (auth required, owner-only)
  *
  * The controller intentionally does NOT skip CSRF middleware itself — that
  * is the host application's responsibility via `skipCheckCallback` on its
@@ -73,6 +74,9 @@ class PasskeysController extends Controller
      * passkey routes.
      *
      * @param \Cake\Event\EventInterface<\Cake\Controller\Controller> $event
+     *
+     * @throws \Cake\Http\Exception\NotFoundException
+     *
      * @return void
      */
     public function beforeFilter(EventInterface $event): void
@@ -216,6 +220,9 @@ class PasskeysController extends Controller
 
     /**
      * @param int $id Passkey id.
+     *
+     * @throws \Cake\Http\Exception\BadRequestException
+     *
      * @return \Cake\Http\Response
      */
     public function rename(int $id): Response
@@ -244,6 +251,7 @@ class PasskeysController extends Controller
 
     /**
      * @param int $id Passkey id.
+     *
      * @return \Cake\Http\Response
      */
     public function delete(int $id): Response
@@ -260,6 +268,9 @@ class PasskeysController extends Controller
     }
 
     /**
+     * @throws \Cake\Http\Exception\ForbiddenException
+     * @throws \Cake\Http\Exception\UnauthorizedException
+     *
      * @return \Passkeys\Contract\PasskeyUserInterface
      */
     private function resolveCurrentUser(): PasskeyUserInterface
@@ -290,6 +301,10 @@ class PasskeysController extends Controller
     /**
      * @param int $id Passkey id.
      * @param int $userId Owner id.
+     *
+     * @throws \Cake\Http\Exception\ForbiddenException
+     * @throws \Cake\Http\Exception\NotFoundException
+     *
      * @return \Passkeys\Model\Entity\Passkey
      */
     private function fetchPasskeyOwnedBy(int $id, int $userId): Passkey
@@ -314,6 +329,9 @@ class PasskeysController extends Controller
      * @param string $key Rate-limit bucket key.
      * @param int $max Max attempts in the window.
      * @param int $decay Window length in seconds.
+     *
+     * @throws \Cake\Http\Exception\BadRequestException
+     *
      * @return void
      */
     private function throttle(string $key, int $max, int $decay): void
@@ -377,6 +395,7 @@ class PasskeysController extends Controller
     /**
      * @param array<string, mixed> $payload
      * @param int $status
+     *
      * @return \Cake\Http\Response
      */
     private function json(array $payload, int $status = 200): Response
@@ -392,6 +411,7 @@ class PasskeysController extends Controller
      * @param \Passkeys\Model\Entity\Passkey $passkey
      * @param string $userHandle
      * @param array<string, mixed> $data
+     *
      * @return void
      */
     private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): void
@@ -405,6 +425,7 @@ class PasskeysController extends Controller
 
     /**
      * @param \Passkeys\Model\Entity\Passkey $p
+     *
      * @return array<string, mixed>
      */
     private function serializePasskey(Passkey $p): array

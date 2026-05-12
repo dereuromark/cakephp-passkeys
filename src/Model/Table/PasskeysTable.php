@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Model\Table;
@@ -8,15 +9,16 @@ use Cake\Validation\Validator;
 use Passkeys\Model\Entity\Passkey;
 
 /**
- * @method \Passkeys\Model\Entity\Passkey get(mixed $primaryKey, array $options = [])
+ * @method \Passkeys\Model\Entity\Passkey get(mixed $primaryKey, array<string, mixed> $options = [])
  * @method \Passkeys\Model\Entity\Passkey newEmptyEntity()
- * @method \Passkeys\Model\Entity\Passkey newEntity(array $data, array $options = [])
- * @method \Passkeys\Model\Entity\Passkey saveOrFail(\Cake\Datasource\EntityInterface $entity, array $options = [])
+ * @method \Passkeys\Model\Entity\Passkey newEntity(array<string, mixed> $data, array<string, mixed> $options = [])
+ * @method \Passkeys\Model\Entity\Passkey saveOrFail(\Cake\Datasource\EntityInterface $entity, array<string, mixed> $options = [])
  */
 class PasskeysTable extends Table
 {
     /**
      * @param array<string, mixed> $config
+     *
      * @return void
      */
     public function initialize(array $config): void
@@ -46,6 +48,7 @@ class PasskeysTable extends Table
 
     /**
      * @param \Cake\Validation\Validator $validator
+     *
      * @return \Cake\Validation\Validator
      */
     public function validationDefault(Validator $validator): Validator

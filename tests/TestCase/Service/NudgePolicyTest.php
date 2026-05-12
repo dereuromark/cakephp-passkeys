@@ -1,10 +1,12 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Test\TestCase\Service;
 
 use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
+use DateTimeImmutable;
 use Passkeys\Service\NudgePolicy;
 
 class NudgePolicyTest extends TestCase
@@ -36,13 +38,13 @@ class NudgePolicyTest extends TestCase
 
     public function testHiddenWhenRecentlyDismissed(): void
     {
-        $recent = new \DateTimeImmutable('-3 days');
+        $recent = new DateTimeImmutable('-3 days');
         $this->assertFalse((new NudgePolicy())->shouldShow(0, 5, $recent));
     }
 
     public function testShownAgainAfterRedisplayWindow(): void
     {
-        $old = new \DateTimeImmutable('-30 days');
+        $old = new DateTimeImmutable('-30 days');
         $this->assertTrue((new NudgePolicy())->shouldShow(0, 5, $old));
     }
 

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Service;
@@ -80,6 +81,8 @@ class WebAuthnService
      * @param \Passkeys\Service\ChallengeStore $challengeStore
      * @param \Passkeys\Service\UserResolver $userResolver
      * @param \Passkeys\Service\AaguidLabelResolver $aaguidResolver
+     *
+     * @throws \Passkeys\Service\WebAuthnException
      */
     public function __construct(
         private ChallengeStore $challengeStore,
@@ -112,6 +115,7 @@ class WebAuthnService
      * client must echo back on finishRegistration().
      *
      * @param \Passkeys\Contract\PasskeyUserInterface $user
+     *
      * @return array<string, mixed>
      */
     public function startRegistration(PasskeyUserInterface $user): array
@@ -174,6 +178,9 @@ class WebAuthnService
      * @param array<string, mixed> $clientResponse
      * @param string $passkeyName
      * @param string|null $emoji
+     *
+     * @throws \Passkeys\Service\WebAuthnException
+     *
      * @return \Passkeys\Model\Entity\Passkey
      */
     public function finishRegistration(
@@ -245,6 +252,7 @@ class WebAuthnService
      * is supplied (in which case allowCredentials is narrowed to that user).
      *
      * @param string|null $emailHint
+     *
      * @return array<string, mixed>
      */
     public function startLogin(?string $emailHint = null): array
@@ -290,6 +298,9 @@ class WebAuthnService
      * sign_count + last_used_at refreshed.
      *
      * @param array<string, mixed> $clientResponse
+     *
+     * @throws \Passkeys\Service\WebAuthnException
+     *
      * @return \Passkeys\Model\Entity\Passkey
      */
     public function finishLogin(array $clientResponse): Passkey
@@ -358,6 +369,7 @@ class WebAuthnService
      * Always UV=required and narrowed to the user's own credentials.
      *
      * @param \Passkeys\Contract\PasskeyUserInterface $user
+     *
      * @return array<string, mixed>
      */
     public function startReauth(PasskeyUserInterface $user): array
@@ -398,6 +410,9 @@ class WebAuthnService
      *
      * @param \Passkeys\Contract\PasskeyUserInterface $user
      * @param array<string, mixed> $clientResponse
+     *
+     * @throws \Passkeys\Service\WebAuthnException
+     *
      * @return bool
      */
     public function finishReauth(PasskeyUserInterface $user, array $clientResponse): bool
@@ -472,6 +487,7 @@ class WebAuthnService
 
     /**
      * @param \Passkeys\Contract\PasskeyUserInterface $user
+     *
      * @return \Webauthn\PublicKeyCredentialUserEntity
      */
     private function userEntity(PasskeyUserInterface $user): PublicKeyCredentialUserEntity
@@ -505,6 +521,7 @@ class WebAuthnService
      * format JS expects (no further conversion needed).
      *
      * @param object $opts
+     *
      * @return array<string, mixed>
      */
     private function serializeForBrowser(object $opts): array
@@ -522,6 +539,9 @@ class WebAuthnService
      * the library's denormalizer expects.
      *
      * @param mixed $response
+     *
+     * @throws \Passkeys\Service\WebAuthnException
+     *
      * @return string
      */
     private function encodeBrowserResponse(mixed $response): string
@@ -543,6 +563,7 @@ class WebAuthnService
 
     /**
      * @param \Passkeys\Model\Entity\Passkey $passkey
+     *
      * @return \Webauthn\CredentialRecord
      */
     private function passkeyToSource(Passkey $passkey): CredentialRecord
@@ -563,6 +584,7 @@ class WebAuthnService
 
     /**
      * @param \Passkeys\Contract\PasskeyUserInterface $user
+     *
      * @return list<\Passkeys\Model\Entity\Passkey>
      */
     private function passkeysFor(PasskeyUserInterface $user): array
@@ -579,6 +601,7 @@ class WebAuthnService
 
     /**
      * @param list<string> $transports
+     *
      * @return string|null
      */
     private function joinTransports(array $transports): ?string
@@ -594,6 +617,7 @@ class WebAuthnService
 
     /**
      * @param string $joined
+     *
      * @return list<string>
      */
     private function splitTransports(string $joined): array
@@ -607,6 +631,7 @@ class WebAuthnService
 
     /**
      * @param string $raw
+     *
      * @return string
      */
     private function normalizeName(string $raw): string
@@ -621,6 +646,7 @@ class WebAuthnService
 
     /**
      * @param string|null $raw
+     *
      * @return string|null
      */
     private function normalizeEmoji(?string $raw): ?string
@@ -638,6 +664,7 @@ class WebAuthnService
 
     /**
      * @param string $uuid
+     *
      * @return string
      */
     private function uuidToBytes(string $uuid): string
@@ -662,8 +689,10 @@ class WebAuthnService
      * Enforce the configured passkey cap server-side as well as in the UI.
      *
      * @param \Passkeys\Contract\PasskeyUserInterface $user
-     * @return void
+     *
      * @throws \Passkeys\Service\WebAuthnException
+     *
+     * @return void
      */
     private function assertUnderPasskeyCap(PasskeyUserInterface $user): void
     {

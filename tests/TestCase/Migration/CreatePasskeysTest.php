@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Test\TestCase\Migration;
@@ -23,7 +24,9 @@ class CreatePasskeysTest extends TestCase
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
 
-        $schema = ConnectionManager::get('test')->getSchemaCollection()->describe('passkeys');
+        /** @var \Cake\Database\Connection $connection */
+        $connection = ConnectionManager::get('test');
+        $schema = $connection->getSchemaCollection()->describe('passkeys');
         $cols = $schema->columns();
 
         $this->assertContains('user_id', $cols);
@@ -45,7 +48,9 @@ class CreatePasskeysTest extends TestCase
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
 
-        $schema = ConnectionManager::get('test')->getSchemaCollection()->describe('passkeys');
+        /** @var \Cake\Database\Connection $connection */
+        $connection = ConnectionManager::get('test');
+        $schema = $connection->getSchemaCollection()->describe('passkeys');
         $this->assertContains('account_id', $schema->columns());
     }
 }

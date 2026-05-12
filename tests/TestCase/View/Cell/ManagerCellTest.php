@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Test\TestCase\View\Cell;
@@ -118,6 +119,7 @@ class ManagerCellTest extends TestCase
 
     /**
      * @param int|null $userId
+     *
      * @return string
      */
     private function renderCell(?int $userId): string
@@ -144,6 +146,7 @@ class ManagerCellTest extends TestCase
     /**
      * @param int $userId
      * @param array<string, mixed> $overrides
+     *
      * @return int
      */
     private function seedPasskey(int $userId, array $overrides = []): int

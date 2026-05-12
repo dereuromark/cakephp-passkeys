@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Event;
@@ -8,6 +9,8 @@ use Passkeys\Model\Entity\Passkey;
 class PasskeyEvent
 {
     /**
+     * @param \Passkeys\Model\Entity\Passkey $passkey
+     * @param string $userHandle
      * @param array<string, mixed> $data
      */
     public function __construct(

@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys;
@@ -14,6 +15,9 @@ use Passkeys\Service\NullRateLimiter;
 
 class PasskeysPlugin extends BasePlugin
 {
+    /**
+     * @var string
+     */
     public const JS_VERSION = '1.0.0';
 
     protected ?string $name = 'Passkeys';

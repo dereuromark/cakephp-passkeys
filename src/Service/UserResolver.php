@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Service;
@@ -14,7 +15,8 @@ class UserResolver
     use LocatorAwareTrait;
 
     /**
-     * @param int|string $id
+     * @param string|int $id
+     *
      * @return \Passkeys\Contract\PasskeyUserInterface|null
      */
     public function byId(int|string $id): ?PasskeyUserInterface
@@ -26,6 +28,7 @@ class UserResolver
 
     /**
      * @param string $email
+     *
      * @return \Passkeys\Contract\PasskeyUserInterface|null
      */
     public function byEmail(string $email): ?PasskeyUserInterface
@@ -37,6 +40,7 @@ class UserResolver
 
     /**
      * @param string $handle
+     *
      * @return \Passkeys\Contract\PasskeyUserInterface|null
      */
     public function byHandle(string $handle): ?PasskeyUserInterface
@@ -74,6 +78,7 @@ class UserResolver
 
     /**
      * @param string $logical
+     *
      * @return string
      */
     private function col(string $logical): string
@@ -83,6 +88,7 @@ class UserResolver
 
     /**
      * @param \Cake\Datasource\EntityInterface|null $entity
+     *
      * @return \Passkeys\Contract\PasskeyUserInterface|null
      */
     private function wrap(?EntityInterface $entity): ?PasskeyUserInterface

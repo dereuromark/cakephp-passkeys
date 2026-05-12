@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Service;
@@ -19,6 +20,8 @@ class ConventionUserAdapter implements PasskeyUserInterface
     }
 
     /**
+     * @throws \RuntimeException
+     *
      * @return string
      */
     public function getPasskeyUserHandle(): string
@@ -70,6 +73,7 @@ class ConventionUserAdapter implements PasskeyUserInterface
 
     /**
      * @param string $logical
+     *
      * @return string
      */
     private function col(string $logical): string

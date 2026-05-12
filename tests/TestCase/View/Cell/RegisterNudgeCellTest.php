@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Test\TestCase\View\Cell;
@@ -79,6 +80,7 @@ class RegisterNudgeCellTest extends TestCase
     /**
      * @param int|null $userId
      * @param int $loginCount
+     *
      * @return string
      */
     private function renderCell(?int $userId, int $loginCount): string
@@ -107,6 +109,7 @@ class RegisterNudgeCellTest extends TestCase
 
     /**
      * @param int $userId
+     *
      * @return void
      */
     private function seedPasskey(int $userId): void

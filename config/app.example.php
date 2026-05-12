@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Canonical configuration reference for dereuromark/cakephp-passkeys.
  *
@@ -23,8 +24,8 @@ return [
         'rpIcon' => null, // optional data: URI or absolute URL
 
         'maxPerUser' => 5,
-        'challengeTtl' => 300,      // seconds; WebAuthn nonce cache TTL
-        'reauthWindow' => 900,      // seconds; how long a reauth stays "fresh"
+        'challengeTtl' => 300, // seconds; WebAuthn nonce cache TTL
+        'reauthWindow' => 900, // seconds; how long a reauth stays "fresh"
 
         // Host user mapping — overrides convention, NOT a replacement.
         // For unusual schemas implement Passkeys\Contract\PasskeyUserInterface
@@ -34,9 +35,9 @@ return [
             'columns' => [
                 'id' => 'id',
                 'email' => 'email',
-                'displayName' => 'name',  // falls back to email if column missing
+                'displayName' => 'name', // falls back to email if column missing
             ],
-            'activeColumn' => null,        // e.g. 'is_active'
+            'activeColumn' => null, // e.g. 'is_active'
         ],
 
         // Multi-tenant SaaS hook. null = single-tenant (no tenant column on
@@ -44,15 +45,15 @@ return [
         // scope passkey lookups by tenant.
         'tenancy' => [
             'column' => null,
-            'sessionKey' => null,          // e.g. 'Auth.account_id'
+            'sessionKey' => null, // e.g. 'Auth.account_id'
         ],
 
         // WebAuthn ceremony tuning — FIDO2-spec defaults are fine for most.
         'ceremony' => [
-            'userVerification' => 'required',  // required on login by spec
-            'residentKey' => 'preferred',      // enables iCloud / GPM sync
-            'attestation' => 'none',           // privacy-respecting default
-            'timeout' => 60_000,               // ms; passed to OS dialog
+            'userVerification' => 'required', // required on login by spec
+            'residentKey' => 'preferred', // enables iCloud / GPM sync
+            'attestation' => 'none', // privacy-respecting default
+            'timeout' => 60_000, // ms; passed to OS dialog
         ],
 
         // Base Cake CacheEngine config to clone for the WebAuthn challenge

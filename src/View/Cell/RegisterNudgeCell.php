@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\View\Cell;
@@ -17,13 +18,7 @@ class RegisterNudgeCell extends Cell
      */
     public function display(): void
     {
-        $request = $this->request;
-        if ($request === null) {
-            $this->set('hidden', true);
-
-            return;
-        }
-        $identity = $request->getAttribute('identity');
+        $identity = $this->request->getAttribute('identity');
         if (!$identity) {
             $this->set('hidden', true);
 
@@ -50,7 +45,7 @@ class RegisterNudgeCell extends Cell
             ->where(['user_id' => $userId])
             ->count();
 
-        $session = $request->getSession();
+        $session = $this->request->getSession();
         $loginCount = (int)$session->read('Passkeys.loginCount', 0);
         $dismissedAtStr = $session->read('Passkeys.nudgeDismissedAt');
         $dismissedAt = $dismissedAtStr !== null

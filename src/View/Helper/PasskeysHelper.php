@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\View\Helper;
@@ -9,8 +10,8 @@ use Cake\View\Helper;
 use Passkeys\PasskeysPlugin;
 
 /**
- * @property \Cake\View\Helper\HtmlHelper $Html
  * @extends \Cake\View\Helper<\Cake\View\View>
+ * @property \Cake\View\Helper\HtmlHelper $Html
  */
 class PasskeysHelper extends Helper
 {
@@ -41,6 +42,7 @@ class PasskeysHelper extends Helper
 
     /**
      * @param array<string, mixed> $opts
+     *
      * @return string
      */
     public function loginButton(array $opts = []): string
@@ -58,6 +60,7 @@ class PasskeysHelper extends Helper
 
     /**
      * @param string $action
+     *
      * @return string
      */
     public function reauthGuard(string $action): string
@@ -149,6 +152,7 @@ class PasskeysHelper extends Helper
 
     /**
      * @param string $value
+     *
      * @return string
      */
     private function escape(string $value): string

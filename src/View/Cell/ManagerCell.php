@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\View\Cell;
@@ -27,8 +28,7 @@ class ManagerCell extends Cell
 
             return;
         }
-        $request = $this->request;
-        $identity = $request !== null ? $request->getAttribute('identity') : null;
+        $identity = $this->request->getAttribute('identity');
         $userId = null;
         if (is_object($identity)) {
             if (method_exists($identity, 'getIdentifier')) {

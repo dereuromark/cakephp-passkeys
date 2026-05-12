@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Test\TestCase\Controller;
@@ -58,12 +59,12 @@ class PasskeysControllerTest extends TestCase
         assert($conn instanceof Connection);
         $conn->execute('DROP TABLE IF EXISTS users');
         $conn->execute(
-            'CREATE TABLE users (' .
-            'id INTEGER PRIMARY KEY, ' .
-            'email VARCHAR(255), ' .
-            'name VARCHAR(255), ' .
-            'is_active INTEGER DEFAULT 1' .
-            ')',
+            'CREATE TABLE users ('
+            . 'id INTEGER PRIMARY KEY, '
+            . 'email VARCHAR(255), '
+            . 'name VARCHAR(255), '
+            . 'is_active INTEGER DEFAULT 1'
+            . ')',
         );
         $conn->insert('users', [
             'id' => 1,
@@ -115,6 +116,7 @@ class PasskeysControllerTest extends TestCase
      *
      * @param string $verb
      * @param string $url
+     *
      * @return void
      */
     #[DataProvider('provideEndpoints')]
@@ -366,8 +368,9 @@ class PasskeysControllerTest extends TestCase
             }
 
             /**
-             * @param string|array<string, mixed>|null $name
+             * @param array<string, mixed>|string|null $name
              * @param mixed $value
+             *
              * @return void
              */
             public function write(array|string|null $name, mixed $value = null): void
@@ -457,8 +460,9 @@ class PasskeysControllerTest extends TestCase
             }
 
             /**
-             * @param string|array<string, mixed>|null $name
+             * @param array<string, mixed>|string|null $name
              * @param mixed $value
+             *
              * @return void
              */
             public function write(array|string|null $name, mixed $value = null): void
@@ -520,6 +524,7 @@ class PasskeysControllerTest extends TestCase
      * `identity` request attribute that satisfies the controller.
      *
      * @param int $userId
+     *
      * @return void
      */
     private function loginAs(int $userId): void
@@ -533,6 +538,7 @@ class PasskeysControllerTest extends TestCase
     /**
      * @param int $userId
      * @param string $name
+     *
      * @return int
      */
     private function seedPasskey(int $userId, string $name): int

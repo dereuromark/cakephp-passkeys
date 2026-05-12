@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Test\TestCase\Service;
@@ -104,6 +105,7 @@ class WebAuthnServiceTest extends TestCase
 
     /**
      * @param int $id
+     *
      * @return \Passkeys\Contract\PasskeyUserInterface
      */
     private function makeUser(int $id): PasskeyUserInterface

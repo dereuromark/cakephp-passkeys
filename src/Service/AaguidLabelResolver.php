@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Passkeys\Service;
@@ -12,6 +13,7 @@ class AaguidLabelResolver
 
     /**
      * @param string|null $aaguidBinary 16-byte raw AAGUID
+     *
      * @return string|null
      */
     public function labelFor(?string $aaguidBinary): ?string
