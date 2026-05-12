@@ -1,0 +1,383 @@
+<?php
+declare(strict_types=1);
+
+namespace Passkeys\Controller;
+
+use Cake\Controller\Controller;
+use Cake\Core\Configure;
+use Cake\Core\ContainerInterface;
+use Cake\Event\Event;
+use Cake\Event\EventManager;
+use Cake\Http\Exception\BadRequestException;
+use Cake\Http\Exception\ForbiddenException;
+use Cake\Http\Exception\NotFoundException;
+use Cake\Http\Exception\UnauthorizedException;
+use Cake\Http\Response;
+use DateTimeImmutable;
+use Passkeys\Contract\PasskeyUserInterface;
+use Passkeys\Contract\RateLimiterInterface;
+use Passkeys\Event\PasskeyEvent;
+use Passkeys\Model\Entity\Passkey;
+use Passkeys\Service\AaguidLabelResolver;
+use Passkeys\Service\ChallengeStore;
+use Passkeys\Service\NullRateLimiter;
+use Passkeys\Service\UserResolver;
+use Passkeys\Service\WebAuthnException;
+use Passkeys\Service\WebAuthnService;
+use Throwable;
+use function Cake\I18n\__d;
+
+/**
+ * WebAuthn / passkey ceremony controller.
+ *
+ * Eight JSON actions:
+ *  - registerStart  POST   /passkeys/register/start   (auth required)
+ *  - registerFinish POST   /passkeys/register/finish  (auth required)
+ *  - loginStart     POST   /passkeys/login/start      (anonymous)
+ *  - loginFinish    POST   /passkeys/login/finish     (anonymous)
+ *  - reauthStart    POST   /passkeys/reauth/start     (auth required)
+ *  - reauthFinish   POST   /passkeys/reauth/finish    (auth required)
+ *  - rename         POST   /passkeys/rename/{id}      (auth required, owner-only)
+ *  - delete         DELETE /passkeys/delete/{id}      (auth required, owner-only)
+ *
+ * The controller intentionally does NOT skip CSRF middleware itself — that
+ * is the host application's responsibility via `skipCheckCallback` on its
+ * own CSRF middleware (documented in the README). The WebAuthn challenge
+ * nonce is the anti-replay guard; FormProtection's signed-fields check is
+ * too tight for JSON POSTs and is therefore disabled here.
+ *
+ * For v1, `loginFinish()` writes a minimum-viable session payload
+ * (`Auth.id` + the configured MFA-satisfied flag) so the host can pick up
+ * the freshly-logged-in user from its own authentication pipeline (or
+ * from an `afterLogin` event subscriber).
+ */
+class PasskeysController extends Controller
+{
+    /**
+     * @return void
+     */
+    public function initialize(): void
+    {
+        parent::initialize();
+        if ($this->components()->has('FormProtection')) {
+            $this->components()->unload('FormProtection');
+        }
+    }
+
+    /**
+     * @return \Cake\Http\Response
+     */
+    public function registerStart(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $user = $this->resolveCurrentUser();
+        $this->throttle('passkeys.register.' . $user->getUserId(), 10, 60);
+
+        return $this->json($this->webauthn()->startRegistration($user));
+    }
+
+    /**
+     * @return \Cake\Http\Response
+     */
+    public function registerFinish(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $user = $this->resolveCurrentUser();
+        $body = (array)$this->getRequest()->getParsedBody();
+        try {
+            $passkey = $this->webauthn()->finishRegistration(
+                $user,
+                $body,
+                trim((string)($body['name'] ?? '')),
+                isset($body['emoji']) ? (string)$body['emoji'] : null,
+            );
+        } catch (WebAuthnException $e) {
+            throw new BadRequestException($e->getMessage());
+        }
+        $this->fire('afterRegister', $passkey, $user->getPasskeyUserHandle());
+
+        return $this->json(['passkey' => $this->serializePasskey($passkey)]);
+    }
+
+    /**
+     * @return \Cake\Http\Response
+     */
+    public function loginStart(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $this->throttle('passkeys.login.' . $this->getRequest()->clientIp(), 20, 60);
+        $emailHint = (string)$this->getRequest()->getQuery('email', '');
+
+        return $this->json($this->webauthn()->startLogin($emailHint !== '' ? $emailHint : null));
+    }
+
+    /**
+     * @return \Cake\Http\Response
+     */
+    public function loginFinish(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $body = (array)$this->getRequest()->getParsedBody();
+        try {
+            $passkey = $this->webauthn()->finishLogin($body);
+        } catch (WebAuthnException $e) {
+            throw new BadRequestException($e->getMessage());
+        }
+        $session = $this->getRequest()->getSession();
+        $session->write(
+            (string)Configure::read('Passkeys.mfa.sessionFlag', 'Passkeys.mfa_satisfied'),
+            true,
+        );
+        // Minimum-viable hand-off: the host's own auth middleware reads
+        // `Auth.id` (or subscribes to `Passkeys.afterLogin`) to populate
+        // its identity object. v2 may expose a richer integration hook.
+        $session->write('Auth.id', $passkey->user_id);
+        $this->fire('afterLogin', $passkey, (string)$passkey->user_id);
+
+        return $this->json([
+            'redirectTo' => (string)Configure::read('Passkeys.afterLoginRedirect', '/'),
+            'mfaSatisfied' => true,
+            'userId' => $passkey->user_id,
+        ]);
+    }
+
+    /**
+     * @return \Cake\Http\Response
+     */
+    public function reauthStart(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $user = $this->resolveCurrentUser();
+        $this->throttle('passkeys.reauth.' . $user->getUserId(), 20, 60);
+
+        return $this->json($this->webauthn()->startReauth($user));
+    }
+
+    /**
+     * @return \Cake\Http\Response
+     */
+    public function reauthFinish(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $user = $this->resolveCurrentUser();
+        $body = (array)$this->getRequest()->getParsedBody();
+        try {
+            $ok = $this->webauthn()->finishReauth($user, $body);
+        } catch (WebAuthnException $e) {
+            throw new BadRequestException($e->getMessage());
+        }
+        if (!$ok) {
+            throw new BadRequestException(__d('passkeys', 'Reauthentication failed.'));
+        }
+        $action = trim((string)($body['action'] ?? 'default'));
+        if ($action === '') {
+            $action = 'default';
+        }
+        $window = (int)Configure::read('Passkeys.reauthWindow', 900);
+        $until = (new DateTimeImmutable())->modify("+{$window} seconds")->format(DATE_ATOM);
+        $this->getRequest()->getSession()->write("Passkeys.recent_reauth.{$action}", $until);
+
+        return $this->json(['ok' => true, 'until' => $until]);
+    }
+
+    /**
+     * @param int $id Passkey id.
+     * @return \Cake\Http\Response
+     */
+    public function rename(int $id): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $user = $this->resolveCurrentUser();
+        $passkey = $this->fetchPasskeyOwnedBy($id, (int)$user->getUserId());
+        $body = (array)$this->getRequest()->getParsedBody();
+        $newName = trim((string)($body['name'] ?? ''));
+        if ($newName === '') {
+            throw new BadRequestException(__d('passkeys', 'Name cannot be empty.'));
+        }
+        $oldName = (string)$passkey->name;
+        $passkey->set('name', mb_substr($newName, 0, 80));
+        if (array_key_exists('emoji', $body)) {
+            $passkey->set('emoji', $body['emoji'] === null ? null : (string)$body['emoji']);
+        }
+        $this->fetchTable('Passkeys.Passkeys')->saveOrFail($passkey);
+        $this->fire('afterRename', $passkey, $user->getPasskeyUserHandle(), [
+            'old' => $oldName,
+            'new' => (string)$passkey->name,
+        ]);
+
+        return $this->json(['passkey' => $this->serializePasskey($passkey)]);
+    }
+
+    /**
+     * @param int $id Passkey id.
+     * @return \Cake\Http\Response
+     */
+    public function delete(int $id): Response
+    {
+        $this->getRequest()->allowMethod(['post', 'delete']);
+        $user = $this->resolveCurrentUser();
+        $passkey = $this->fetchPasskeyOwnedBy($id, (int)$user->getUserId());
+        // Capture entity for the event payload BEFORE deletion so listeners
+        // can still read its fields.
+        $this->fire('afterDelete', $passkey, $user->getPasskeyUserHandle());
+        $this->fetchTable('Passkeys.Passkeys')->delete($passkey);
+
+        return $this->json(['deleted' => true]);
+    }
+
+    /**
+     * @return \Passkeys\Contract\PasskeyUserInterface
+     */
+    private function resolveCurrentUser(): PasskeyUserInterface
+    {
+        $identity = $this->getRequest()->getAttribute('identity');
+        if (!$identity) {
+            throw new UnauthorizedException();
+        }
+        $id = null;
+        if (is_object($identity)) {
+            if (method_exists($identity, 'getIdentifier')) {
+                $id = $identity->getIdentifier();
+            } elseif (isset($identity->id)) {
+                $id = $identity->id;
+            }
+        }
+        if ($id === null) {
+            throw new UnauthorizedException();
+        }
+        $user = (new UserResolver())->byId($id);
+        if ($user === null || !$user->isPasskeyEligible()) {
+            throw new ForbiddenException();
+        }
+
+        return $user;
+    }
+
+    /**
+     * @param int $id Passkey id.
+     * @param int $userId Owner id.
+     * @return \Passkeys\Model\Entity\Passkey
+     */
+    private function fetchPasskeyOwnedBy(int $id, int $userId): Passkey
+    {
+        $passkey = $this->fetchTable('Passkeys.Passkeys')->find()
+            ->where(['Passkeys.id' => $id])
+            ->first();
+        if (!$passkey instanceof Passkey) {
+            throw new NotFoundException();
+        }
+        if ((int)$passkey->user_id !== $userId) {
+            // Owner check is sufficient even when tenancy.column is set:
+            // every user belongs to exactly one account, so a matching
+            // user_id implies a matching account_id.
+            throw new ForbiddenException();
+        }
+
+        return $passkey;
+    }
+
+    /**
+     * @param string $key Rate-limit bucket key.
+     * @param int $max Max attempts in the window.
+     * @param int $decay Window length in seconds.
+     * @return void
+     */
+    private function throttle(string $key, int $max, int $decay): void
+    {
+        $limiter = $this->resolveRateLimiter();
+        if (!$limiter->hit($key, $max, $decay)) {
+            throw new BadRequestException(__d('passkeys', 'Too many attempts — try again later.'));
+        }
+    }
+
+    /**
+     * Locate the rate-limiter the host has wired (via DI in
+     * {@see \Passkeys\PasskeysPlugin::services()} or directly through the
+     * `Passkeys.rateLimiter` Configure key). Falls back to the no-op
+     * implementation when neither is configured.
+     *
+     * @return \Passkeys\Contract\RateLimiterInterface
+     */
+    private function resolveRateLimiter(): RateLimiterInterface
+    {
+        try {
+            $container = $this->getRequest()->getAttribute('container');
+            if (
+                $container instanceof ContainerInterface
+                && $container->has(RateLimiterInterface::class)
+            ) {
+                $instance = $container->get(RateLimiterInterface::class);
+                if ($instance instanceof RateLimiterInterface) {
+                    return $instance;
+                }
+            }
+        } catch (Throwable) {
+            // fall through to Configure lookup
+        }
+        $impl = Configure::read('Passkeys.rateLimiter');
+        if (is_string($impl) && class_exists($impl)) {
+            $instance = new $impl();
+            if ($instance instanceof RateLimiterInterface) {
+                return $instance;
+            }
+        }
+        if ($impl instanceof RateLimiterInterface) {
+            return $impl;
+        }
+
+        return new NullRateLimiter();
+    }
+
+    /**
+     * @return \Passkeys\Service\WebAuthnService
+     */
+    private function webauthn(): WebAuthnService
+    {
+        return new WebAuthnService(new ChallengeStore(), new UserResolver(), new AaguidLabelResolver());
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     * @param int $status
+     * @return \Cake\Http\Response
+     */
+    private function json(array $payload, int $status = 200): Response
+    {
+        return $this->getResponse()
+            ->withType('application/json')
+            ->withStatus($status)
+            ->withStringBody((string)json_encode($payload, JSON_THROW_ON_ERROR));
+    }
+
+    /**
+     * @param string $name Event suffix (e.g. "afterRegister").
+     * @param \Passkeys\Model\Entity\Passkey $passkey
+     * @param string $userHandle
+     * @param array<string, mixed> $data
+     * @return void
+     */
+    private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): void
+    {
+        EventManager::instance()->dispatch(new Event(
+            'Passkeys.' . $name,
+            null,
+            ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
+        ));
+    }
+
+    /**
+     * @param \Passkeys\Model\Entity\Passkey $p
+     * @return array<string, mixed>
+     */
+    private function serializePasskey(Passkey $p): array
+    {
+        return [
+            'id' => $p->id,
+            'name' => $p->name,
+            'emoji' => $p->emoji,
+            'aaguidLabel' => $p->aaguid_label,
+            'createdAt' => $p->created->format(DATE_ATOM),
+            'lastUsedAt' => $p->last_used_at?->format(DATE_ATOM),
+        ];
+    }
+}

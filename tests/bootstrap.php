@@ -27,6 +27,8 @@ define('CAKE_CORE_INCLUDE_PATH', ROOT . '/vendor/cakephp/cakephp');
 Configure::write('debug', true);
 Configure::write('App', [
     'namespace' => 'TestApp',
+    'encoding' => 'UTF-8',
+    'defaultLocale' => 'en_US',
     'paths' => ['plugins' => [ROOT . '/tests/test_app/plugins/']],
 ]);
 
