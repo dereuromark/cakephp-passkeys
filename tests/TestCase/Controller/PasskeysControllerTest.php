@@ -8,10 +8,14 @@ use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
 use Cake\Event\EventManager;
+use Cake\Http\ServerRequest;
+use Cake\Http\Session;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
 use Migrations\Migrations;
+use Passkeys\Controller\PasskeysController;
 use Passkeys\Event\PasskeyEvent;
+use Passkeys\Service\WebAuthnService;
 
 class PasskeysControllerTest extends TestCase
 {
@@ -186,6 +190,96 @@ class PasskeysControllerTest extends TestCase
         $id = $this->seedPasskey(1, 'Mine');
         $this->delete("/passkeys/delete/{$id}");
         $this->assertResponseCode(403);
+    }
+
+    /**
+     * Session-fixation defense: loginFinish() must rotate the session ID
+     * before writing any identity-bearing data. We bypass the real WebAuthn
+     * ceremony by injecting a stub service that returns a pre-built Passkey,
+     * then spy on the request's Session to assert renew() was called BEFORE
+     * the Auth.id write.
+     *
+     * @return void
+     */
+    public function testLoginFinishRenewsSession(): void
+    {
+        $passkey = $this->getTableLocator()->get('Passkeys.Passkeys')->newEntity(
+            [
+                'user_id' => 1,
+                'credential_id' => random_bytes(16),
+                'public_key' => random_bytes(77),
+                'name' => 'Stub',
+                'sign_count' => 0,
+            ],
+            ['accessibleFields' => ['*' => true]],
+        );
+        $this->getTableLocator()->get('Passkeys.Passkeys')->saveOrFail($passkey);
+
+        $session = new class extends Session {
+            /**
+             * @var array<int, string>
+             */
+            public array $log = [];
+
+            public function __construct()
+            {
+                // Skip parent constructor — we only care about call ordering.
+            }
+
+            /**
+             * @return void
+             */
+            public function renew(): void
+            {
+                $this->log[] = 'renew';
+            }
+
+            /**
+             * @param string|array<string, mixed>|null $name
+             * @param mixed $value
+             * @return void
+             */
+            public function write(array|string|null $name, mixed $value = null): void
+            {
+                $this->log[] = 'write:' . (is_array($name) ? 'array' : (string)$name);
+            }
+        };
+
+        $service = $this->createMock(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+            'session' => $session,
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'x']);
+
+        $controller = new class ($request, $service) extends PasskeysController {
+            public function __construct(
+                ServerRequest $request,
+                private WebAuthnService $stub,
+            ) {
+                parent::__construct($request);
+            }
+
+            protected function webauthn(): WebAuthnService
+            {
+                return $this->stub;
+            }
+        };
+
+        $controller->loginFinish();
+
+        // renew() must appear in the call log AND must precede the Auth.id write.
+        $this->assertContains('renew', $session->log);
+        $authIndex = array_search('write:Auth.id', $session->log, true);
+        $renewIndex = array_search('renew', $session->log, true);
+        $this->assertNotFalse($authIndex, 'Auth.id was not written');
+        $this->assertNotFalse($renewIndex, 'renew() was not called');
+        $this->assertLessThan(
+            $authIndex,
+            $renewIndex,
+            'renew() must run BEFORE Auth.id is written (session-fixation guard)',
+        );
     }
 
     /**

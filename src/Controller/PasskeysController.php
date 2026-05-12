@@ -124,6 +124,11 @@ class PasskeysController extends Controller
             throw new BadRequestException($e->getMessage());
         }
         $session = $this->getRequest()->getSession();
+        // Defeat session-fixation: rotate the session ID BEFORE writing any
+        // identity-bearing data. An attacker who pre-seeded a victim's cookie
+        // ends up holding the now-discarded pre-login id; the post-renew id
+        // is the one bound to the authenticated session.
+        $session->renew();
         $session->write(
             (string)Configure::read('Passkeys.mfa.sessionFlag', 'Passkeys.mfa_satisfied'),
             true,
@@ -329,9 +334,13 @@ class PasskeysController extends Controller
     }
 
     /**
+     * Exposed as protected so test doubles can override and inject a stub
+     * service (e.g. to bypass the real WebAuthn ceremony when asserting
+     * post-login session behavior).
+     *
      * @return \Passkeys\Service\WebAuthnService
      */
-    private function webauthn(): WebAuthnService
+    protected function webauthn(): WebAuthnService
     {
         return new WebAuthnService(new ChallengeStore(), new UserResolver(), new AaguidLabelResolver());
     }
