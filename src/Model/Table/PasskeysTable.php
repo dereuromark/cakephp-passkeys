@@ -9,6 +9,7 @@ use Passkeys\Model\Entity\Passkey;
 
 /**
  * @method \Passkeys\Model\Entity\Passkey get(mixed $primaryKey, array $options = [])
+ * @method \Passkeys\Model\Entity\Passkey newEmptyEntity()
  * @method \Passkeys\Model\Entity\Passkey newEntity(array $data, array $options = [])
  * @method \Passkeys\Model\Entity\Passkey saveOrFail(\Cake\Datasource\EntityInterface $entity, array $options = [])
  */
