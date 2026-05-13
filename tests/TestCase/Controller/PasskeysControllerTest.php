@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Controller;
+namespace CakePasskeys\Test\TestCase\Controller;
 
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
@@ -13,10 +13,10 @@ use Cake\Http\ServerRequest;
 use Cake\Http\Session;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
+use CakePasskeys\Controller\PasskeysController;
+use CakePasskeys\Event\PasskeyEvent;
+use CakePasskeys\Service\WebAuthnService;
 use Migrations\Migrations;
-use Passkeys\Controller\PasskeysController;
-use Passkeys\Event\PasskeyEvent;
-use Passkeys\Service\WebAuthnService;
 use PHPUnit\Framework\Attributes\DataProvider;
 
 class PasskeysControllerTest extends TestCase
@@ -37,17 +37,17 @@ class PasskeysControllerTest extends TestCase
         Cache::setConfig('passkeys_challenges', ['className' => 'Array', 'duration' => 300]);
         // Reset the master switch — one test toggles it false, others rely
         // on the default `enabled => true`.
-        Configure::write('Passkeys.enabled', true);
-        Configure::write('Passkeys.rpId', 'localhost');
-        Configure::write('Passkeys.rpName', 'Test');
-        Configure::write('Passkeys.maxPerUser', 5);
-        Configure::write('Passkeys.challengeTtl', 300);
-        Configure::write('Passkeys.cache', 'default');
-        Configure::write('Passkeys.tenancy.column', null);
+        Configure::write('CakePasskeys.enabled', true);
+        Configure::write('CakePasskeys.rpId', 'localhost');
+        Configure::write('CakePasskeys.rpName', 'Test');
+        Configure::write('CakePasskeys.maxPerUser', 5);
+        Configure::write('CakePasskeys.challengeTtl', 300);
+        Configure::write('CakePasskeys.cache', 'default');
+        Configure::write('CakePasskeys.tenancy.column', null);
         // Reset the session-key override — one test overrides this to a
         // non-default path, others rely on the default `Auth.id`.
-        Configure::write('Passkeys.session.userIdKey', 'Auth.id');
-        Configure::write('Passkeys.ceremony', [
+        Configure::write('CakePasskeys.session.userIdKey', 'Auth.id');
+        Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
             'attestation' => 'none',
@@ -79,7 +79,7 @@ class PasskeysControllerTest extends TestCase
             'is_active' => 1,
         ]);
 
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
 
@@ -106,7 +106,7 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
-     * Master-switch: when `Passkeys.enabled` is false, EVERY controller
+     * Master-switch: when `CakePasskeys.enabled` is false, EVERY controller
      * action must 404 — not just login/start. Hiding the UI is not
      * enough; a live JSON API can still be probed or abused.
      *
@@ -122,7 +122,7 @@ class PasskeysControllerTest extends TestCase
     #[DataProvider('provideEndpoints')]
     public function testEndpointsReturn404WhenDisabled(string $verb, string $url): void
     {
-        Configure::write('Passkeys.enabled', false);
+        Configure::write('CakePasskeys.enabled', false);
         match ($verb) {
             'post' => $this->post($url),
             'delete' => $this->delete($url),
@@ -188,7 +188,7 @@ class PasskeysControllerTest extends TestCase
         /** @var array<string, mixed>|null $fired */
         $fired = null;
         EventManager::instance()->on(
-            'Passkeys.afterRename',
+            'CakePasskeys.afterRename',
             function ($event) use (&$fired): void {
                 $fired = $event->getData();
             },
@@ -197,8 +197,8 @@ class PasskeysControllerTest extends TestCase
         $this->post("/passkeys/rename/{$id}", ['name' => 'New laptop']);
         $this->assertResponseOk();
 
-        /** @var \Passkeys\Model\Entity\Passkey $row */
-        $row = $this->getTableLocator()->get('Passkeys.Passkeys')->get($id);
+        /** @var \CakePasskeys\Model\Entity\Passkey $row */
+        $row = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($id);
         $this->assertSame('New laptop', $row->name);
         $this->assertNotNull($fired);
         $this->assertInstanceOf(PasskeyEvent::class, $fired['event']);
@@ -227,7 +227,7 @@ class PasskeysControllerTest extends TestCase
 
         $fired = false;
         EventManager::instance()->on(
-            'Passkeys.afterDelete',
+            'CakePasskeys.afterDelete',
             function () use (&$fired): void {
                 $fired = true;
             },
@@ -236,7 +236,7 @@ class PasskeysControllerTest extends TestCase
         $this->delete("/passkeys/delete/{$id}");
         $this->assertResponseOk();
         $this->assertFalse(
-            $this->getTableLocator()->get('Passkeys.Passkeys')->exists(['id' => $id]),
+            $this->getTableLocator()->get('CakePasskeys.Passkeys')->exists(['id' => $id]),
         );
         $this->assertTrue($fired);
     }
@@ -336,7 +336,7 @@ class PasskeysControllerTest extends TestCase
      */
     public function testLoginFinishRenewsSession(): void
     {
-        $passkey = $this->getTableLocator()->get('Passkeys.Passkeys')->newEntity(
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->newEntity(
             [
                 'user_id' => 1,
                 'credential_id' => random_bytes(16),
@@ -346,7 +346,7 @@ class PasskeysControllerTest extends TestCase
             ],
             ['accessibleFields' => ['*' => true]],
         );
-        $this->getTableLocator()->get('Passkeys.Passkeys')->saveOrFail($passkey);
+        $this->getTableLocator()->get('CakePasskeys.Passkeys')->saveOrFail($passkey);
 
         $session = new class extends Session {
             /**
@@ -417,7 +417,7 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
-     * loginFinish() must honor `Passkeys.session.userIdKey` — hosts using
+     * loginFinish() must honor `CakePasskeys.session.userIdKey` — hosts using
      * cakephp/authentication map identity to `Identity.id`, not the legacy
      * AuthComponent's `Auth.id`. The previous hard-coded path silently
      * dropped the login for those hosts.
@@ -426,9 +426,9 @@ class PasskeysControllerTest extends TestCase
      */
     public function testLoginFinishWritesConfiguredSessionKey(): void
     {
-        Configure::write('Passkeys.session.userIdKey', 'Identity.user_id');
+        Configure::write('CakePasskeys.session.userIdKey', 'Identity.user_id');
 
-        $passkey = $this->getTableLocator()->get('Passkeys.Passkeys')->newEntity(
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->newEntity(
             [
                 'user_id' => 1,
                 'credential_id' => random_bytes(16),
@@ -438,7 +438,7 @@ class PasskeysControllerTest extends TestCase
             ],
             ['accessibleFields' => ['*' => true]],
         );
-        $this->getTableLocator()->get('Passkeys.Passkeys')->saveOrFail($passkey);
+        $this->getTableLocator()->get('CakePasskeys.Passkeys')->saveOrFail($passkey);
 
         $session = new class extends Session {
             /**
@@ -498,7 +498,7 @@ class PasskeysControllerTest extends TestCase
         $this->assertContains(
             'write:Identity.user_id',
             $session->log,
-            'loginFinish() must write to the configured Passkeys.session.userIdKey path',
+            'loginFinish() must write to the configured CakePasskeys.session.userIdKey path',
         );
         $this->assertNotContains(
             'write:Auth.id',
@@ -543,8 +543,8 @@ class PasskeysControllerTest extends TestCase
      */
     private function seedPasskey(int $userId, string $name): int
     {
-        $table = $this->getTableLocator()->get('Passkeys.Passkeys');
-        /** @var \Passkeys\Model\Entity\Passkey $entity */
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
+        /** @var \CakePasskeys\Model\Entity\Passkey $entity */
         $entity = $table->newEntity(
             [
                 'user_id' => $userId,

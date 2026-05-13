@@ -6,7 +6,7 @@ namespace TestApp;
 use Cake\Http\BaseApplication;
 use Cake\Http\MiddlewareQueue;
 use Cake\Routing\Middleware\RoutingMiddleware;
-use Passkeys\PasskeysPlugin;
+use CakePasskeys\CakePasskeysPlugin;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -20,8 +20,8 @@ class Application extends BaseApplication
     public function bootstrap(): void
     {
         parent::bootstrap();
-        if (!$this->getPlugins()->has('Passkeys')) {
-            $this->addPlugin(PasskeysPlugin::class);
+        if (!$this->getPlugins()->has('CakePasskeys')) {
+            $this->addPlugin(CakePasskeysPlugin::class);
         }
     }
 

@@ -2,10 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Service;
+namespace CakePasskeys\Test\TestCase\Service;
 
 use Cake\TestSuite\TestCase;
-use Passkeys\Service\AaguidLabelResolver;
+use CakePasskeys\Service\AaguidLabelResolver;
 
 class AaguidLabelResolverTest extends TestCase
 {

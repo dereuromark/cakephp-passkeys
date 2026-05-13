@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\View\Cell;
+namespace CakePasskeys\View\Cell;
 
 use Cake\Core\Configure;
 use Cake\Routing\Router;
@@ -22,7 +22,7 @@ class LoginButtonCell extends Cell
      */
     public function display(?string $class = null, ?string $label = null): void
     {
-        if (!Configure::read('Passkeys.enabled')) {
+        if (!Configure::read('CakePasskeys.enabled')) {
             $this->set('hidden', true);
 
             return;
@@ -31,12 +31,12 @@ class LoginButtonCell extends Cell
             'hidden' => false,
             'endpoints' => [
                 'start' => Router::url([
-                    'plugin' => 'Passkeys',
+                    'plugin' => 'CakePasskeys',
                     'controller' => 'Passkeys',
                     'action' => 'loginStart',
                 ]),
                 'finish' => Router::url([
-                    'plugin' => 'Passkeys',
+                    'plugin' => 'CakePasskeys',
                     'controller' => 'Passkeys',
                     'action' => 'loginFinish',
                 ]),

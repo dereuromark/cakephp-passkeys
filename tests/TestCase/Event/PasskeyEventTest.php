@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Event;
+namespace CakePasskeys\Test\TestCase\Event;
 
 use Cake\TestSuite\TestCase;
-use Passkeys\Event\PasskeyEvent;
-use Passkeys\Model\Entity\Passkey;
+use CakePasskeys\Event\PasskeyEvent;
+use CakePasskeys\Model\Entity\Passkey;
 
 class PasskeyEventTest extends TestCase
 {

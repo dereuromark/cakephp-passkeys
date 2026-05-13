@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\View\Cell;
+namespace CakePasskeys\Test\TestCase\View\Cell;
 
 use Cake\Core\Configure;
 use Cake\Http\ServerRequest;
@@ -18,13 +18,13 @@ class RegisterNudgeCellTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('Passkeys.tenancy.column', null);
-        Configure::write('Passkeys.nudge', [
+        Configure::write('CakePasskeys.tenancy.column', null);
+        Configure::write('CakePasskeys.nudge', [
             'enabled' => true,
             'afterLogins' => 3,
             'redisplayAfterDays' => 14,
         ]);
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
         $this->getTableLocator()->clear();
@@ -87,7 +87,7 @@ class RegisterNudgeCellTest extends TestCase
     {
         $request = new ServerRequest();
         $session = $request->getSession();
-        $session->write('Passkeys.loginCount', $loginCount);
+        $session->write('CakePasskeys.loginCount', $loginCount);
 
         if ($userId !== null) {
             $identity = new class ($userId) {
@@ -104,7 +104,7 @@ class RegisterNudgeCellTest extends TestCase
         }
         $view = new View($request);
 
-        return (string)$view->cell('Passkeys.RegisterNudge');
+        return (string)$view->cell('CakePasskeys.RegisterNudge');
     }
 
     /**
@@ -114,7 +114,7 @@ class RegisterNudgeCellTest extends TestCase
      */
     private function seedPasskey(int $userId): void
     {
-        $table = $this->getTableLocator()->get('Passkeys.Passkeys');
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
         $entity = $table->newEntity([
             'user_id' => $userId,
             'credential_id' => random_bytes(16),

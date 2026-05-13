@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\View\Cell;
+namespace CakePasskeys\Test\TestCase\View\Cell;
 
 use Cake\Core\Configure;
 use Cake\Http\ServerRequest;
 use Cake\Routing\Router;
 use Cake\TestSuite\TestCase;
 use Cake\View\View;
-use Passkeys\PasskeysPlugin;
+use CakePasskeys\CakePasskeysPlugin;
 
 class LoginButtonCellTest extends TestCase
 {
@@ -19,10 +19,10 @@ class LoginButtonCellTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('Passkeys.enabled', true);
+        Configure::write('CakePasskeys.enabled', true);
         Router::reload();
         $builder = Router::createRouteBuilder('/');
-        (new PasskeysPlugin())->routes($builder);
+        (new CakePasskeysPlugin())->routes($builder);
     }
 
     /**
@@ -30,7 +30,7 @@ class LoginButtonCellTest extends TestCase
      */
     public function testRendersHiddenWithEndpoints(): void
     {
-        $html = (string)(new View(new ServerRequest()))->cell('Passkeys.LoginButton');
+        $html = (string)(new View(new ServerRequest()))->cell('CakePasskeys.LoginButton');
         $this->assertStringContainsString('data-passkey-authenticate', $html);
         $this->assertStringContainsString('hidden', $html);
         $this->assertStringContainsString('data-passkey-endpoints', $html);
@@ -42,7 +42,7 @@ class LoginButtonCellTest extends TestCase
      */
     public function testRendersCustomClassAndLabel(): void
     {
-        $html = (string)(new View(new ServerRequest()))->cell('Passkeys.LoginButton', [
+        $html = (string)(new View(new ServerRequest()))->cell('CakePasskeys.LoginButton', [
             'class' => 'my-btn primary',
             'label' => 'Use a passkey',
         ]);
@@ -55,8 +55,8 @@ class LoginButtonCellTest extends TestCase
      */
     public function testDisabledRendersNothing(): void
     {
-        Configure::write('Passkeys.enabled', false);
-        $html = (string)(new View(new ServerRequest()))->cell('Passkeys.LoginButton');
+        Configure::write('CakePasskeys.enabled', false);
+        $html = (string)(new View(new ServerRequest()))->cell('CakePasskeys.LoginButton');
         $this->assertSame('', trim($html));
     }
 }

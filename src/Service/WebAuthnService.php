@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Service;
+namespace CakePasskeys\Service;
 
 use Cake\Core\Configure;
 use Cake\I18n\DateTime;
 use Cake\ORM\Locator\LocatorAwareTrait;
-use Passkeys\Contract\PasskeyUserInterface;
-use Passkeys\Model\Entity\Passkey;
-use Passkeys\Model\Table\PasskeysTable;
+use CakePasskeys\Contract\PasskeyUserInterface;
+use CakePasskeys\Model\Entity\Passkey;
+use CakePasskeys\Model\Table\PasskeysTable;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Uid\Uuid;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
@@ -43,7 +43,7 @@ use Webauthn\TrustPath\EmptyTrustPath;
  *  - User lookup during login moved behind {@see UserResolver}.
  *  - AAGUID → vendor-label resolution moved behind {@see AaguidLabelResolver};
  *    the resolved label is persisted on the row at registration time.
- *  - Configure keys moved under the `Passkeys.*` namespace.
+ *  - Configure keys moved under the `CakePasskeys.*` namespace.
  *  - All failures raise {@see WebAuthnException} (single subclass of
  *    `\RuntimeException`).
  *
@@ -78,22 +78,22 @@ class WebAuthnService
     private AuthenticatorAssertionResponseValidator $assertionValidator;
 
     /**
-     * @param \Passkeys\Service\ChallengeStore $challengeStore
-     * @param \Passkeys\Service\UserResolver $userResolver
-     * @param \Passkeys\Service\AaguidLabelResolver $aaguidResolver
+     * @param \CakePasskeys\Service\ChallengeStore $challengeStore
+     * @param \CakePasskeys\Service\UserResolver $userResolver
+     * @param \CakePasskeys\Service\AaguidLabelResolver $aaguidResolver
      *
-     * @throws \Passkeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\WebAuthnException
      */
     public function __construct(
         private ChallengeStore $challengeStore,
         private UserResolver $userResolver,
         private AaguidLabelResolver $aaguidResolver,
     ) {
-        $this->rpName = (string)Configure::read('Passkeys.rpName', 'My App');
-        $this->rpId = (string)Configure::read('Passkeys.rpId', '');
+        $this->rpName = (string)Configure::read('CakePasskeys.rpName', 'My App');
+        $this->rpId = (string)Configure::read('CakePasskeys.rpId', '');
         if ($this->rpId === '') {
             throw new WebAuthnException(
-                'Passkeys.rpId is not configured. Set it via Configure or the WEBAUTHN_RP_ID env var.',
+                'CakePasskeys.rpId is not configured. Set it via Configure or the WEBAUTHN_RP_ID env var.',
             );
         }
 
@@ -114,7 +114,7 @@ class WebAuthnService
      * `navigator.credentials.create`, plus a top-level `challengeKey` the
      * client must echo back on finishRegistration().
      *
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      *
      * @return array<string, mixed>
      */
@@ -130,7 +130,7 @@ class WebAuthnService
             );
         }
 
-        $ceremony = (array)Configure::read('Passkeys.ceremony', []);
+        $ceremony = (array)Configure::read('CakePasskeys.ceremony', []);
         $challenge = random_bytes(32);
         $opts = PublicKeyCredentialCreationOptions::create(
             $this->rpEntity(),
@@ -174,14 +174,14 @@ class WebAuthnService
      *  - `response` — the verbatim JSON `PublicKeyCredential` value the
      *    browser produced (id, rawId, type, response{…})
      *
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      * @param array<string, mixed> $clientResponse
      * @param string $passkeyName
      * @param string|null $emoji
      *
-     * @throws \Passkeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\WebAuthnException
      *
-     * @return \Passkeys\Model\Entity\Passkey
+     * @return \CakePasskeys\Model\Entity\Passkey
      */
     public function finishRegistration(
         PasskeyUserInterface $user,
@@ -257,7 +257,7 @@ class WebAuthnService
      */
     public function startLogin(?string $emailHint = null): array
     {
-        $ceremony = (array)Configure::read('Passkeys.ceremony', []);
+        $ceremony = (array)Configure::read('CakePasskeys.ceremony', []);
         $challenge = random_bytes(32);
 
         $allowCredentials = [];
@@ -299,9 +299,9 @@ class WebAuthnService
      *
      * @param array<string, mixed> $clientResponse
      *
-     * @throws \Passkeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\WebAuthnException
      *
-     * @return \Passkeys\Model\Entity\Passkey
+     * @return \CakePasskeys\Model\Entity\Passkey
      */
     public function finishLogin(array $clientResponse): Passkey
     {
@@ -368,14 +368,14 @@ class WebAuthnService
      * Builds a step-up reauth challenge for an already-authenticated user.
      * Always UV=required and narrowed to the user's own credentials.
      *
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      *
      * @return array<string, mixed>
      */
     public function startReauth(PasskeyUserInterface $user): array
     {
         $challenge = random_bytes(32);
-        $ceremony = (array)Configure::read('Passkeys.ceremony', []);
+        $ceremony = (array)Configure::read('CakePasskeys.ceremony', []);
 
         $allowCredentials = [];
         foreach ($this->passkeysFor($user) as $row) {
@@ -408,10 +408,10 @@ class WebAuthnService
     /**
      * Verifies a reauth assertion. Returns true on success, throws otherwise.
      *
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      * @param array<string, mixed> $clientResponse
      *
-     * @throws \Passkeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\WebAuthnException
      *
      * @return bool
      */
@@ -486,7 +486,7 @@ class WebAuthnService
     }
 
     /**
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      *
      * @return \Webauthn\PublicKeyCredentialUserEntity
      */
@@ -540,7 +540,7 @@ class WebAuthnService
      *
      * @param mixed $response
      *
-     * @throws \Passkeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\WebAuthnException
      *
      * @return string
      */
@@ -562,7 +562,7 @@ class WebAuthnService
     }
 
     /**
-     * @param \Passkeys\Model\Entity\Passkey $passkey
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
      *
      * @return \Webauthn\CredentialRecord
      */
@@ -583,13 +583,13 @@ class WebAuthnService
     }
 
     /**
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      *
-     * @return list<\Passkeys\Model\Entity\Passkey>
+     * @return list<\CakePasskeys\Model\Entity\Passkey>
      */
     private function passkeysFor(PasskeyUserInterface $user): array
     {
-        /** @var list<\Passkeys\Model\Entity\Passkey> $rows */
+        /** @var list<\CakePasskeys\Model\Entity\Passkey> $rows */
         $rows = $this->passkeys()
             ->find()
             ->where(['Passkeys.user_id' => $user->getUserId()])
@@ -675,12 +675,12 @@ class WebAuthnService
     }
 
     /**
-     * @return \Passkeys\Model\Table\PasskeysTable
+     * @return \CakePasskeys\Model\Table\PasskeysTable
      */
     private function passkeys(): PasskeysTable
     {
-        /** @var \Passkeys\Model\Table\PasskeysTable $table */
-        $table = $this->fetchTable('Passkeys.Passkeys');
+        /** @var \CakePasskeys\Model\Table\PasskeysTable $table */
+        $table = $this->fetchTable('CakePasskeys.Passkeys');
 
         return $table;
     }
@@ -688,15 +688,15 @@ class WebAuthnService
     /**
      * Enforce the configured passkey cap server-side as well as in the UI.
      *
-     * @param \Passkeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      *
-     * @throws \Passkeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\WebAuthnException
      *
      * @return void
      */
     private function assertUnderPasskeyCap(PasskeyUserInterface $user): void
     {
-        $maxPerUser = (int)Configure::read('Passkeys.maxPerUser', 5);
+        $maxPerUser = (int)Configure::read('CakePasskeys.maxPerUser', 5);
         if ($maxPerUser <= 0) {
             return;
         }

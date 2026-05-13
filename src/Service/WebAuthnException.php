@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Service;
+namespace CakePasskeys\Service;
 
 use RuntimeException;
 

@@ -2,9 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Service;
+namespace CakePasskeys\Service;
 
-use Passkeys\Contract\RateLimiterInterface;
+use CakePasskeys\Contract\RateLimiterInterface;
 
 class NullRateLimiter implements RateLimiterInterface
 {

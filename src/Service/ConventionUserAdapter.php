@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Service;
+namespace CakePasskeys\Service;
 
 use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Security;
-use Passkeys\Contract\PasskeyUserInterface;
+use CakePasskeys\Contract\PasskeyUserInterface;
 use RuntimeException;
 
 class ConventionUserAdapter implements PasskeyUserInterface
@@ -58,7 +58,7 @@ class ConventionUserAdapter implements PasskeyUserInterface
      */
     public function isPasskeyEligible(): bool
     {
-        $activeCol = Configure::read('Passkeys.users.activeColumn');
+        $activeCol = Configure::read('CakePasskeys.users.activeColumn');
 
         return !$activeCol || (bool)$this->entity->get($activeCol);
     }
@@ -78,6 +78,6 @@ class ConventionUserAdapter implements PasskeyUserInterface
      */
     private function col(string $logical): string
     {
-        return (string)Configure::read("Passkeys.users.columns.$logical", $logical);
+        return (string)Configure::read("CakePasskeys.users.columns.$logical", $logical);
     }
 }

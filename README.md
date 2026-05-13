@@ -20,14 +20,14 @@ Both passwordless and 2FA modes are supported.
 
 ```bash
 composer require dereuromark/cakephp-passkeys
-bin/cake plugin load Passkeys
-bin/cake migrations migrate -p Passkeys
+bin/cake plugin load CakePasskeys
+bin/cake migrations migrate -p CakePasskeys
 ```
 
 In your settings template:
 
 ```php
-<?= $this->cell('Passkeys.Manager') ?>
+<?= $this->cell('CakePasskeys.Manager') ?>
 <?= $this->Passkeys->script() ?>
 ```
 
@@ -58,7 +58,7 @@ Allow the user role on the eight authenticated actions, and anonymous on
 the two login endpoints:
 
 ```ini
-[Passkeys.Passkeys]
+[CakePasskeys.Passkeys]
 index = user
 register_start = user
 register_finish = user
@@ -74,7 +74,7 @@ reauth_finish = user
 
 ```php
 return [
-    'Passkeys' => [
+    'CakePasskeys' => [
         'enabled' => env('PASSKEYS_ENABLED', true),
         'rp' => [
             'id' => env('WEBAUTHN_RP_ID', 'example.com'),
@@ -87,7 +87,7 @@ return [
         // session shape:
         //   - cakephp/authentication (modern):  'Identity.id'
         //   - legacy AuthComponent (default):   'Auth.id'
-        // The plugin also fires Passkeys.afterLogin — subscribe there
+        // The plugin also fires CakePasskeys.afterLogin — subscribe there
         // to skip the session write entirely and build identity yourself.
         'session' => ['userIdKey' => 'Auth.id'],
     ],
@@ -115,7 +115,7 @@ public function beforeFilter(\Cake\Event\EventInterface $event): void
 {
     parent::beforeFilter($event);
 
-    $this->getEventManager()->on('Passkeys.afterLogin', function ($event) {
+    $this->getEventManager()->on('CakePasskeys.afterLogin', function ($event) {
         $passkeyEvent = $event->getData('event');
         // write to your audit log / set identity / mark MFA satisfied / ...
     });
@@ -124,7 +124,7 @@ public function beforeFilter(\Cake\Event\EventInterface $event): void
 
 ### 5. Demo / anonymous-route policy
 
-If you expose a public demo route, gate it behind `Passkeys.enabled` and
+If you expose a public demo route, gate it behind `CakePasskeys.enabled` and
 unauthenticate the user before the WebAuthn ceremony — otherwise the
 demo credential gets bound to a real account.
 
@@ -136,7 +136,7 @@ demo credential gets bound to a real account.
 > default lands wrong defaults in production.
 
 - **Passwordless.** A passkey login is the full auth ceremony. The
-  session flag `Passkeys.mfa_satisfied = true` tells your MFA gate not
+  session flag `CakePasskeys.mfa_satisfied = true` tells your MFA gate not
   to prompt for a 2nd factor.
 - **2FA.** User logs in with email/password first, then a passkey acts
   as the 2nd factor. The same session flag means "2nd factor satisfied
@@ -145,14 +145,14 @@ demo credential gets bound to a real account.
 ## UI surfaces
 
 ```php
-<?= $this->cell('Passkeys.Manager') ?>
+<?= $this->cell('CakePasskeys.Manager') ?>
 ```
 
 Settings list. Handles empty / populated / at-cap states. Rename and
 delete inline.
 
 ```php
-<?= $this->cell('Passkeys.LoginButton') ?>
+<?= $this->cell('CakePasskeys.LoginButton') ?>
 ```
 
 Feature-detected *Sign in with a passkey* button. Stays hidden if the
@@ -168,7 +168,7 @@ autofill chip can surface passkeys (conditional UI). No button click
 required — the user picks a passkey from the email field's dropdown.
 
 ```php
-<?= $this->cell('Passkeys.RegisterNudge') ?>
+<?= $this->cell('CakePasskeys.RegisterNudge') ?>
 ```
 
 Post-login banner that suggests passkey enrollment to users who don't
@@ -210,7 +210,7 @@ serves a 6 kB IIFE bundle (2.18 kB gzipped) that auto-binds
 `data-passkey-*` attributes on `DOMContentLoaded`.
 
 > [!NOTE]
-> `Passkeys.urlPrefix` controls **both** the route mount point AND the
+> `CakePasskeys.urlPrefix` controls **both** the route mount point AND the
 > asset URL. If you set `'urlPrefix' => '/auth/passkeys'` to namespace
 > the eight endpoints under a custom prefix, the helper's `script()`
 > tag automatically points at `/auth/passkeys/dist/passkeys.min.js`.
@@ -220,12 +220,12 @@ serves a 6 kB IIFE bundle (2.18 kB gzipped) that auto-binds
 
 | Event | Payload class | Extra data |
 | --- | --- | --- |
-| `Passkeys.afterRegister` | `PasskeyEvent($passkey, $userHandle)` | — |
-| `Passkeys.afterLogin` | `PasskeyEvent($passkey, $userHandle)` | — |
-| `Passkeys.afterRename` | `PasskeyEvent($passkey, $userHandle, ['old' => $old, 'new' => $new])` | rename diff |
-| `Passkeys.afterDelete` | `PasskeyEvent($passkey, $userHandle)` | — |
+| `CakePasskeys.afterRegister` | `PasskeyEvent($passkey, $userHandle)` | — |
+| `CakePasskeys.afterLogin` | `PasskeyEvent($passkey, $userHandle)` | — |
+| `CakePasskeys.afterRename` | `PasskeyEvent($passkey, $userHandle, ['old' => $old, 'new' => $new])` | rename diff |
+| `CakePasskeys.afterDelete` | `PasskeyEvent($passkey, $userHandle)` | — |
 
-Subscribe via `$this->getEventManager()->on('Passkeys.afterX', ...)` —
+Subscribe via `$this->getEventManager()->on('CakePasskeys.afterX', ...)` —
 see the touchpoints section above.
 
 ## Security model

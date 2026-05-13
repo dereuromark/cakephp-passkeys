@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\View\Cell;
+namespace CakePasskeys\View\Cell;
 
 use Cake\Core\Configure;
 use Cake\View\Cell;
@@ -23,7 +23,7 @@ class ManagerCell extends Cell
      */
     public function display(): void
     {
-        if (!Configure::read('Passkeys.enabled')) {
+        if (!Configure::read('CakePasskeys.enabled')) {
             $this->set('hidden', true);
 
             return;
@@ -44,8 +44,8 @@ class ManagerCell extends Cell
             return;
         }
 
-        /** @var \Passkeys\Model\Table\PasskeysTable $table */
-        $table = $this->fetchTable('Passkeys.Passkeys');
+        /** @var \CakePasskeys\Model\Table\PasskeysTable $table */
+        $table = $this->fetchTable('CakePasskeys.Passkeys');
         $passkeys = $table->find()
             ->where(['user_id' => $userId])
             ->orderBy(['created' => 'DESC'])
@@ -54,13 +54,13 @@ class ManagerCell extends Cell
 
         $this->viewBuilder()->setHelpers(['Form']);
 
-        $maxPerUser = (int)Configure::read('Passkeys.maxPerUser', 5);
+        $maxPerUser = (int)Configure::read('CakePasskeys.maxPerUser', 5);
         $this->set([
             'hidden' => false,
             'passkeys' => $passkeys,
             'atCap' => count($passkeys) >= $maxPerUser,
             'maxPerUser' => $maxPerUser,
-            'docsUrl' => Configure::read('Passkeys.docsUrl'),
+            'docsUrl' => Configure::read('CakePasskeys.docsUrl'),
             'title' => $this->viewBuilder()->getOption('title') ?? __d('passkeys', 'Passkeys'),
         ]);
     }

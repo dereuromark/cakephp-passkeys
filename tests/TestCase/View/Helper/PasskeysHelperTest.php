@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\View\Helper;
+namespace CakePasskeys\Test\TestCase\View\Helper;
 
 use Cake\Core\Configure;
 use Cake\Http\ServerRequest;
 use Cake\Routing\Router;
 use Cake\TestSuite\TestCase;
 use Cake\View\View;
-use Passkeys\PasskeysPlugin;
-use Passkeys\View\Helper\PasskeysHelper;
+use CakePasskeys\CakePasskeysPlugin;
+use CakePasskeys\View\Helper\PasskeysHelper;
 
 class PasskeysHelperTest extends TestCase
 {
@@ -22,13 +22,13 @@ class PasskeysHelperTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('Passkeys.enabled', true);
+        Configure::write('CakePasskeys.enabled', true);
         // Reset the URL prefix to the default — one test toggles it to
         // /auth/passkeys to prove the helper honors the override.
-        Configure::write('Passkeys.urlPrefix', '/passkeys');
+        Configure::write('CakePasskeys.urlPrefix', '/passkeys');
         Router::reload();
         $builder = Router::createRouteBuilder('/');
-        (new PasskeysPlugin())->routes($builder);
+        (new CakePasskeysPlugin())->routes($builder);
 
         $request = (new ServerRequest())->withAttribute('csp_nonce', 'abc123');
         $view = new View($request);
@@ -46,7 +46,7 @@ class PasskeysHelperTest extends TestCase
     }
 
     /**
-     * The asset URL must inherit `Passkeys.urlPrefix`. A host that mounts
+     * The asset URL must inherit `CakePasskeys.urlPrefix`. A host that mounts
      * the plugin under `/auth/passkeys` (e.g. for tidy SSO-style namespacing)
      * would otherwise 404 on the bundled JS because the helper hard-coded
      * `/passkeys/dist/...`.
@@ -55,7 +55,7 @@ class PasskeysHelperTest extends TestCase
      */
     public function testScriptHonorsCustomUrlPrefix(): void
     {
-        Configure::write('Passkeys.urlPrefix', '/auth/passkeys');
+        Configure::write('CakePasskeys.urlPrefix', '/auth/passkeys');
         $html = $this->helper->script();
         $this->assertStringContainsString('/auth/passkeys/dist/passkeys.min.js', $html);
         $this->assertStringNotContainsString('"/passkeys/dist/', $html);
@@ -66,7 +66,7 @@ class PasskeysHelperTest extends TestCase
      */
     public function testScriptEmptyWhenDisabled(): void
     {
-        Configure::write('Passkeys.enabled', false);
+        Configure::write('CakePasskeys.enabled', false);
         $this->assertSame('', $this->helper->script());
     }
 
@@ -104,7 +104,7 @@ class PasskeysHelperTest extends TestCase
      */
     public function testJsVersionMatchesPluginConstant(): void
     {
-        $this->assertSame(PasskeysPlugin::JS_VERSION, $this->helper->jsVersion());
+        $this->assertSame(CakePasskeysPlugin::JS_VERSION, $this->helper->jsVersion());
     }
 
     /**
@@ -113,7 +113,7 @@ class PasskeysHelperTest extends TestCase
     public function testIsEnabledReflectsConfig(): void
     {
         $this->assertTrue($this->helper->isEnabled());
-        Configure::write('Passkeys.enabled', false);
+        Configure::write('CakePasskeys.enabled', false);
         $this->assertFalse($this->helper->isEnabled());
     }
 }

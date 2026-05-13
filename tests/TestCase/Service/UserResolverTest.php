@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Service;
+namespace CakePasskeys\Test\TestCase\Service;
 
 use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
 use Cake\TestSuite\TestCase;
-use Passkeys\Service\UserResolver;
+use CakePasskeys\Service\UserResolver;
 
 class UserResolverTest extends TestCase
 {
@@ -16,7 +16,7 @@ class UserResolverTest extends TestCase
     {
         parent::setUp();
         // Security.salt is already set by tests/bootstrap.php
-        Configure::write('Passkeys.users', [
+        Configure::write('CakePasskeys.users', [
             'table' => 'Users',
             'columns' => ['id' => 'id', 'email' => 'email', 'displayName' => 'name'],
             'activeColumn' => null,
@@ -33,7 +33,7 @@ class UserResolverTest extends TestCase
     protected function tearDown(): void
     {
         $this->getTableLocator()->clear();
-        Configure::write('Passkeys.users.activeColumn', null);
+        Configure::write('CakePasskeys.users.activeColumn', null);
         parent::tearDown();
     }
 
@@ -73,7 +73,7 @@ class UserResolverTest extends TestCase
 
     public function testActiveColumnFiltersInactiveUsers(): void
     {
-        Configure::write('Passkeys.users.activeColumn', 'is_active');
+        Configure::write('CakePasskeys.users.activeColumn', 'is_active');
         $this->assertNotNull((new UserResolver())->byId(1));
         $this->assertNull((new UserResolver())->byId(2));
     }

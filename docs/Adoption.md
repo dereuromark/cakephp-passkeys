@@ -8,8 +8,8 @@ For an app that has never had passkeys before:
 
 ```bash
 composer require dereuromark/cakephp-passkeys
-bin/cake plugin load Passkeys                        # or addPlugin() in Application.php
-bin/cake migrations migrate -p Passkeys              # creates the passkeys table
+bin/cake plugin load CakePasskeys                    # or addPlugin() in Application.php
+bin/cake migrations migrate -p CakePasskeys          # creates the passkeys table
 ```
 
 Then wire the five host touchpoints documented in the
@@ -75,7 +75,7 @@ class PasskeysPluginBridge extends BaseMigration
 ```
 
 3. Run `bin/cake migrations migrate` (host migrations only — do NOT
-   run `migrations migrate -p Passkeys` on these installs).
+   run `migrations migrate -p CakePasskeys` on these installs).
 
 4. Delete the host's inlined controller / service / table / entity /
    client-side JS. The plugin's classes take over via PSR-4 + composer
@@ -85,7 +85,7 @@ class PasskeysPluginBridge extends BaseMigration
 
 ```php
 <!-- templates/Settings/security.php (or wherever passkeys lived) -->
-<?= $this->cell('Passkeys.Manager') ?>
+<?= $this->cell('CakePasskeys.Manager') ?>
 
 <!-- templates/Users/login.php — replace inline WebAuthn JS -->
 <?= $this->Passkeys->script() ?>
@@ -98,7 +98,7 @@ class PasskeysPluginBridge extends BaseMigration
    your existing audit-log writes continue:
 
 ```php
-$this->getEventManager()->on('Passkeys.afterRegister', function ($event) {
+$this->getEventManager()->on('CakePasskeys.afterRegister', function ($event) {
     $passkeyEvent = $event->getData('event');
     $this->fetchTable('AuditLogs')->writeLog(
         'passkey_registered',

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Service;
+namespace CakePasskeys\Service;
 
 use Cake\Cache\Cache;
 
@@ -44,9 +44,9 @@ class ChallengeStore
     }
 
     /**
-     * The plugin's bootstrap clones the host's chosen `Passkeys.cache` engine
+     * The plugin's bootstrap clones the host's chosen `CakePasskeys.cache` engine
      * into a `passkeys_challenges` engine with `duration` pinned to
-     * `Passkeys.challengeTtl`. Always write to that dedicated engine so
+     * `CakePasskeys.challengeTtl`. Always write to that dedicated engine so
      * stale challenges expire on schedule.
      *
      * @return string

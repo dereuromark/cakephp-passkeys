@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Contract;
+namespace CakePasskeys\Contract;
 
 interface PasskeyUserInterface
 {

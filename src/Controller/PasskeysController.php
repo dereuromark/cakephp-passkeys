@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Controller;
+namespace CakePasskeys\Controller;
 
 use Cake\Controller\Controller;
 use Cake\Core\Configure;
@@ -15,17 +15,17 @@ use Cake\Http\Exception\ForbiddenException;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Exception\UnauthorizedException;
 use Cake\Http\Response;
+use CakePasskeys\Contract\PasskeyUserInterface;
+use CakePasskeys\Contract\RateLimiterInterface;
+use CakePasskeys\Event\PasskeyEvent;
+use CakePasskeys\Model\Entity\Passkey;
+use CakePasskeys\Service\AaguidLabelResolver;
+use CakePasskeys\Service\ChallengeStore;
+use CakePasskeys\Service\NullRateLimiter;
+use CakePasskeys\Service\UserResolver;
+use CakePasskeys\Service\WebAuthnException;
+use CakePasskeys\Service\WebAuthnService;
 use DateTimeImmutable;
-use Passkeys\Contract\PasskeyUserInterface;
-use Passkeys\Contract\RateLimiterInterface;
-use Passkeys\Event\PasskeyEvent;
-use Passkeys\Model\Entity\Passkey;
-use Passkeys\Service\AaguidLabelResolver;
-use Passkeys\Service\ChallengeStore;
-use Passkeys\Service\NullRateLimiter;
-use Passkeys\Service\UserResolver;
-use Passkeys\Service\WebAuthnException;
-use Passkeys\Service\WebAuthnService;
 use Throwable;
 use function Cake\I18n\__d;
 
@@ -67,7 +67,7 @@ class PasskeysController extends Controller
     }
 
     /**
-     * Enforces the `Passkeys.enabled` master switch on every endpoint.
+     * Enforces the `CakePasskeys.enabled` master switch on every endpoint.
      * When disabled, the entire controller surface 404s — the plugin's
      * UI cells already hide themselves; this closes the API edge so a
      * disabled host cannot leak ceremony surface or be probed via the
@@ -82,7 +82,7 @@ class PasskeysController extends Controller
     public function beforeFilter(EventInterface $event): void
     {
         parent::beforeFilter($event);
-        if (!Configure::read('Passkeys.enabled')) {
+        if (!Configure::read('CakePasskeys.enabled')) {
             throw new NotFoundException();
         }
     }
@@ -159,21 +159,21 @@ class PasskeysController extends Controller
         // is the one bound to the authenticated session.
         $session->renew();
         $session->write(
-            (string)Configure::read('Passkeys.mfa.sessionFlag', 'Passkeys.mfa_satisfied'),
+            (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied'),
             true,
         );
         // Minimum-viable hand-off: the host's own auth middleware reads
-        // the configured session key (or subscribes to `Passkeys.afterLogin`)
+        // the configured session key (or subscribes to `CakePasskeys.afterLogin`)
         // to populate its identity object. The default `Auth.id` matches
         // the legacy CakePHP AuthComponent shape; hosts using
         // cakephp/authentication typically point this at `Identity.id`
         // or similar. v2 may expose a richer integration hook.
-        $userIdKey = (string)Configure::read('Passkeys.session.userIdKey', 'Auth.id');
+        $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
         $session->write($userIdKey, $passkey->user_id);
         $this->fire('afterLogin', $passkey, (string)$passkey->user_id);
 
         return $this->json([
-            'redirectTo' => (string)Configure::read('Passkeys.afterLoginRedirect', '/'),
+            'redirectTo' => (string)Configure::read('CakePasskeys.afterLoginRedirect', '/'),
             'mfaSatisfied' => true,
             'userId' => $passkey->user_id,
         ]);
@@ -211,9 +211,9 @@ class PasskeysController extends Controller
         if ($action === '') {
             $action = 'default';
         }
-        $window = (int)Configure::read('Passkeys.reauthWindow', 900);
+        $window = (int)Configure::read('CakePasskeys.reauthWindow', 900);
         $until = (new DateTimeImmutable())->modify("+{$window} seconds")->format(DATE_ATOM);
-        $this->getRequest()->getSession()->write("Passkeys.recent_reauth.{$action}", $until);
+        $this->getRequest()->getSession()->write("CakePasskeys.recent_reauth.{$action}", $until);
 
         return $this->json(['ok' => true, 'until' => $until]);
     }
@@ -240,7 +240,7 @@ class PasskeysController extends Controller
         if (array_key_exists('emoji', $body)) {
             $passkey->set('emoji', $body['emoji'] === null ? null : (string)$body['emoji']);
         }
-        $this->fetchTable('Passkeys.Passkeys')->saveOrFail($passkey);
+        $this->fetchTable('CakePasskeys.Passkeys')->saveOrFail($passkey);
         $this->fire('afterRename', $passkey, $user->getPasskeyUserHandle(), [
             'old' => $oldName,
             'new' => (string)$passkey->name,
@@ -262,7 +262,7 @@ class PasskeysController extends Controller
         // Capture entity for the event payload BEFORE deletion so listeners
         // can still read its fields.
         $this->fire('afterDelete', $passkey, $user->getPasskeyUserHandle());
-        $this->fetchTable('Passkeys.Passkeys')->delete($passkey);
+        $this->fetchTable('CakePasskeys.Passkeys')->delete($passkey);
 
         return $this->json(['deleted' => true]);
     }
@@ -271,7 +271,7 @@ class PasskeysController extends Controller
      * @throws \Cake\Http\Exception\ForbiddenException
      * @throws \Cake\Http\Exception\UnauthorizedException
      *
-     * @return \Passkeys\Contract\PasskeyUserInterface
+     * @return \CakePasskeys\Contract\PasskeyUserInterface
      */
     private function resolveCurrentUser(): PasskeyUserInterface
     {
@@ -305,11 +305,11 @@ class PasskeysController extends Controller
      * @throws \Cake\Http\Exception\ForbiddenException
      * @throws \Cake\Http\Exception\NotFoundException
      *
-     * @return \Passkeys\Model\Entity\Passkey
+     * @return \CakePasskeys\Model\Entity\Passkey
      */
     private function fetchPasskeyOwnedBy(int $id, int $userId): Passkey
     {
-        $passkey = $this->fetchTable('Passkeys.Passkeys')->find()
+        $passkey = $this->fetchTable('CakePasskeys.Passkeys')->find()
             ->where(['Passkeys.id' => $id])
             ->first();
         if (!$passkey instanceof Passkey) {
@@ -344,11 +344,11 @@ class PasskeysController extends Controller
 
     /**
      * Locate the rate-limiter the host has wired (via DI in
-     * {@see \Passkeys\PasskeysPlugin::services()} or directly through the
-     * `Passkeys.rateLimiter` Configure key). Falls back to the no-op
+     * {@see \CakePasskeys\CakePasskeysPlugin::services()} or directly through the
+     * `CakePasskeys.rateLimiter` Configure key). Falls back to the no-op
      * implementation when neither is configured.
      *
-     * @return \Passkeys\Contract\RateLimiterInterface
+     * @return \CakePasskeys\Contract\RateLimiterInterface
      */
     private function resolveRateLimiter(): RateLimiterInterface
     {
@@ -366,7 +366,7 @@ class PasskeysController extends Controller
         } catch (Throwable) {
             // fall through to Configure lookup
         }
-        $impl = Configure::read('Passkeys.rateLimiter');
+        $impl = Configure::read('CakePasskeys.rateLimiter');
         if (is_string($impl) && class_exists($impl)) {
             $instance = new $impl();
             if ($instance instanceof RateLimiterInterface) {
@@ -385,7 +385,7 @@ class PasskeysController extends Controller
      * service (e.g. to bypass the real WebAuthn ceremony when asserting
      * post-login session behavior).
      *
-     * @return \Passkeys\Service\WebAuthnService
+     * @return \CakePasskeys\Service\WebAuthnService
      */
     protected function webauthn(): WebAuthnService
     {
@@ -408,7 +408,7 @@ class PasskeysController extends Controller
 
     /**
      * @param string $name Event suffix (e.g. "afterRegister").
-     * @param \Passkeys\Model\Entity\Passkey $passkey
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
      * @param string $userHandle
      * @param array<string, mixed> $data
      *
@@ -417,14 +417,14 @@ class PasskeysController extends Controller
     private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): void
     {
         EventManager::instance()->dispatch(new Event(
-            'Passkeys.' . $name,
+            'CakePasskeys.' . $name,
             null,
             ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
         ));
     }
 
     /**
-     * @param \Passkeys\Model\Entity\Passkey $p
+     * @param \CakePasskeys\Model\Entity\Passkey $p
      *
      * @return array<string, mixed>
      */

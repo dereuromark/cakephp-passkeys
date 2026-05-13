@@ -9,7 +9,7 @@ defaults in production.
 Passkey login is the full auth ceremony. The browser performs user
 verification (biometric / PIN) as part of the WebAuthn call, which the
 FIDO2 spec defines as multi-factor in a single step. The plugin writes
-`$session->write('Passkeys.mfa_satisfied', true)` on a UV-verified
+`$session->write('CakePasskeys.mfa_satisfied', true)` on a UV-verified
 login, and your MFA gate should accept that as "already multi-factor."
 
 Typical wiring:
@@ -17,7 +17,7 @@ Typical wiring:
 ```php
 // AppController::beforeFilter()
 $mfaSatisfied = $this->getRequest()->getSession()->read(
-    (string)\Cake\Core\Configure::read('Passkeys.mfa.sessionFlag', 'Passkeys.mfa_satisfied'),
+    (string)\Cake\Core\Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied'),
 );
 
 if ($this->requires2fa() && !$mfaSatisfied) {
@@ -66,8 +66,8 @@ recovery codes, change email), guard the form with:
 
 The JS binder intercepts the form's first submit, runs the WebAuthn
 reauth ceremony, then resubmits the form when the ceremony succeeds.
-The session records `Passkeys.recent_reauth.delete-account = ISO8601`
-until `Passkeys.reauthWindow` seconds pass.
+The session records `CakePasskeys.recent_reauth.delete-account = ISO8601`
+until `CakePasskeys.reauthWindow` seconds pass.
 
 ## Recovery — host-owned
 

@@ -2,13 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Service;
+namespace CakePasskeys\Service;
 
 use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
 use Cake\ORM\Locator\LocatorAwareTrait;
 use Cake\ORM\Query\SelectQuery;
-use Passkeys\Contract\PasskeyUserInterface;
+use CakePasskeys\Contract\PasskeyUserInterface;
 
 class UserResolver
 {
@@ -17,7 +17,7 @@ class UserResolver
     /**
      * @param string|int $id
      *
-     * @return \Passkeys\Contract\PasskeyUserInterface|null
+     * @return \CakePasskeys\Contract\PasskeyUserInterface|null
      */
     public function byId(int|string $id): ?PasskeyUserInterface
     {
@@ -29,7 +29,7 @@ class UserResolver
     /**
      * @param string $email
      *
-     * @return \Passkeys\Contract\PasskeyUserInterface|null
+     * @return \CakePasskeys\Contract\PasskeyUserInterface|null
      */
     public function byEmail(string $email): ?PasskeyUserInterface
     {
@@ -41,7 +41,7 @@ class UserResolver
     /**
      * @param string $handle
      *
-     * @return \Passkeys\Contract\PasskeyUserInterface|null
+     * @return \CakePasskeys\Contract\PasskeyUserInterface|null
      */
     public function byHandle(string $handle): ?PasskeyUserInterface
     {
@@ -66,9 +66,9 @@ class UserResolver
      */
     private function baseQuery(): SelectQuery
     {
-        $table = $this->fetchTable((string)Configure::read('Passkeys.users.table', 'Users'));
+        $table = $this->fetchTable((string)Configure::read('CakePasskeys.users.table', 'Users'));
         $query = $table->find();
-        $activeCol = Configure::read('Passkeys.users.activeColumn');
+        $activeCol = Configure::read('CakePasskeys.users.activeColumn');
         if ($activeCol) {
             $query->where([$table->aliasField((string)$activeCol) => true]);
         }
@@ -83,13 +83,13 @@ class UserResolver
      */
     private function col(string $logical): string
     {
-        return (string)Configure::read("Passkeys.users.columns.$logical", $logical);
+        return (string)Configure::read("CakePasskeys.users.columns.$logical", $logical);
     }
 
     /**
      * @param \Cake\Datasource\EntityInterface|null $entity
      *
-     * @return \Passkeys\Contract\PasskeyUserInterface|null
+     * @return \CakePasskeys\Contract\PasskeyUserInterface|null
      */
     private function wrap(?EntityInterface $entity): ?PasskeyUserInterface
     {

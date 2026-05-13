@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Model\Entity;
+namespace CakePasskeys\Model\Entity;
 
 use Cake\ORM\Entity;
 

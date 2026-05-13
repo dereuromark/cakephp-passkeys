@@ -1,7 +1,7 @@
 <?php
 
 return [
-    'Passkeys' => [
+    'CakePasskeys' => [
         'enabled' => true,
         'rpId' => 'localhost',
         'rpName' => 'My App',
@@ -22,7 +22,7 @@ return [
             'timeout' => 60_000,
         ],
         'cache' => 'default',
-        'mfa' => ['sessionFlag' => 'Passkeys.mfa_satisfied'],
+        'mfa' => ['sessionFlag' => 'CakePasskeys.mfa_satisfied'],
         'session' => ['userIdKey' => 'Auth.id'],
         'rateLimiter' => null,
         'urlPrefix' => '/passkeys',

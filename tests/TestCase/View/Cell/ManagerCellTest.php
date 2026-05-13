@@ -2,15 +2,15 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\View\Cell;
+namespace CakePasskeys\Test\TestCase\View\Cell;
 
 use Cake\Core\Configure;
 use Cake\Http\ServerRequest;
 use Cake\Routing\Router;
 use Cake\TestSuite\TestCase;
 use Cake\View\View;
+use CakePasskeys\CakePasskeysPlugin;
 use Migrations\Migrations;
-use Passkeys\PasskeysPlugin;
 
 class ManagerCellTest extends TestCase
 {
@@ -20,12 +20,12 @@ class ManagerCellTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('Passkeys.enabled', true);
-        Configure::write('Passkeys.maxPerUser', 5);
-        Configure::write('Passkeys.docsUrl', null);
-        Configure::write('Passkeys.tenancy.column', null);
+        Configure::write('CakePasskeys.enabled', true);
+        Configure::write('CakePasskeys.maxPerUser', 5);
+        Configure::write('CakePasskeys.docsUrl', null);
+        Configure::write('CakePasskeys.tenancy.column', null);
 
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
         $this->getTableLocator()->clear();
@@ -35,7 +35,7 @@ class ManagerCellTest extends TestCase
         // app, so we set up the plugin's routes explicitly.
         Router::reload();
         $builder = Router::createRouteBuilder('/');
-        (new PasskeysPlugin())->routes($builder);
+        (new CakePasskeysPlugin())->routes($builder);
     }
 
     /**
@@ -71,7 +71,7 @@ class ManagerCellTest extends TestCase
      */
     public function testEmptyStateShowsDocsLinkWhenConfigured(): void
     {
-        Configure::write('Passkeys.docsUrl', 'https://docs.example.com/passkeys');
+        Configure::write('CakePasskeys.docsUrl', 'https://docs.example.com/passkeys');
         $html = $this->renderCell(userId: 1);
         $this->assertStringContainsString('docs.example.com/passkeys', $html);
     }
@@ -93,7 +93,7 @@ class ManagerCellTest extends TestCase
      */
     public function testDisabledRendersNothing(): void
     {
-        Configure::write('Passkeys.enabled', false);
+        Configure::write('CakePasskeys.enabled', false);
         $this->assertSame('', trim($this->renderCell(userId: 1)));
     }
 
@@ -110,7 +110,7 @@ class ManagerCellTest extends TestCase
      */
     public function testAddCtaHiddenAtCap(): void
     {
-        Configure::write('Passkeys.maxPerUser', 1);
+        Configure::write('CakePasskeys.maxPerUser', 1);
         $this->seedPasskey(1, ['name' => 'Only one']);
         $html = $this->renderCell(userId: 1);
         $this->assertStringNotContainsString('data-passkey-register', $html);
@@ -140,7 +140,7 @@ class ManagerCellTest extends TestCase
         }
         $view = new View($request);
 
-        return (string)$view->cell('Passkeys.Manager');
+        return (string)$view->cell('CakePasskeys.Manager');
     }
 
     /**
@@ -158,7 +158,7 @@ class ManagerCellTest extends TestCase
             'name' => 'Passkey ' . $userId,
             'sign_count' => 0,
         ], $overrides);
-        $table = $this->getTableLocator()->get('Passkeys.Passkeys');
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
         $entity = $table->newEntity($data, ['accessibleFields' => ['*' => true]]);
         $table->saveOrFail($entity);
 

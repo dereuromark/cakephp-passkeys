@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Model\Table;
+namespace CakePasskeys\Test\TestCase\Model\Table;
 
 use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
+use CakePasskeys\Model\Table\PasskeysTable;
 use Migrations\Migrations;
-use Passkeys\Model\Table\PasskeysTable;
 
 class PasskeysTableTest extends TestCase
 {
@@ -16,12 +16,12 @@ class PasskeysTableTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('Passkeys.tenancy.column', null);
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        Configure::write('CakePasskeys.tenancy.column', null);
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
-        /** @var \Passkeys\Model\Table\PasskeysTable $table */
-        $table = $this->getTableLocator()->get('Passkeys.Passkeys');
+        /** @var \CakePasskeys\Model\Table\PasskeysTable $table */
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
         $this->Passkeys = $table;
     }
 

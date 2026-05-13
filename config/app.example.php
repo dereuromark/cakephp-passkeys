@@ -5,12 +5,12 @@
  *
  * Copy values from this file into your host app's `config/passkeys.php`
  * (or merge into `config/app_custom.php`) and override only what differs
- * from the defaults. The plugin reads from the `Passkeys.*` Configure
+ * from the defaults. The plugin reads from the `CakePasskeys.*` Configure
  * namespace at bootstrap; anything you don't set falls back to the
  * default in `vendor/dereuromark/cakephp-passkeys/config/bootstrap.php`.
  */
 return [
-    'Passkeys' => [
+    'CakePasskeys' => [
         // Master switch. Set false to hide all plugin UI surfaces and
         // refuse all ceremonies without removing code / running a migration.
         'enabled' => true,
@@ -28,7 +28,7 @@ return [
         'reauthWindow' => 900, // seconds; how long a reauth stays "fresh"
 
         // Host user mapping — overrides convention, NOT a replacement.
-        // For unusual schemas implement Passkeys\Contract\PasskeyUserInterface
+        // For unusual schemas implement CakePasskeys\Contract\PasskeyUserInterface
         // on your User entity and set `userAdapter` below instead.
         'users' => [
             'table' => 'Users',
@@ -67,7 +67,7 @@ return [
             // Session key the plugin writes on a UV-verified login. Your
             // auth middleware reads this to decide whether to skip a 2nd
             // factor prompt.
-            'sessionFlag' => 'Passkeys.mfa_satisfied',
+            'sessionFlag' => 'CakePasskeys.mfa_satisfied',
         ],
 
         // Session hand-off path the plugin writes the authenticated user
@@ -75,7 +75,7 @@ return [
         //   - cakephp/authentication (modern):  'Identity.id'
         //   - legacy AuthComponent:             'Auth.id' (default)
         //   - custom middleware:                whatever your stack reads
-        // The plugin also fires a `Passkeys.afterLogin` event — subscribers
+        // The plugin also fires a `CakePasskeys.afterLogin` event — subscribers
         // can ignore the session write entirely and build the identity
         // payload themselves.
         'session' => [

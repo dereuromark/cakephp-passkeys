@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Event;
+namespace CakePasskeys\Event;
 
-use Passkeys\Model\Entity\Passkey;
+use CakePasskeys\Model\Entity\Passkey;
 
 class PasskeyEvent
 {
     /**
-     * @param \Passkeys\Model\Entity\Passkey $passkey
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
      * @param string $userHandle
      * @param array<string, mixed> $data
      */
@@ -21,7 +21,7 @@ class PasskeyEvent
     }
 
     /**
-     * @return \Passkeys\Model\Entity\Passkey
+     * @return \CakePasskeys\Model\Entity\Passkey
      */
     public function getPasskey(): Passkey
     {

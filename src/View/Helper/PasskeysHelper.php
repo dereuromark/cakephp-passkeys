@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\View\Helper;
+namespace CakePasskeys\View\Helper;
 
 use Cake\Core\Configure;
 use Cake\Routing\Router;
 use Cake\View\Helper;
-use Passkeys\PasskeysPlugin;
+use CakePasskeys\CakePasskeysPlugin;
 
 /**
  * @extends \Cake\View\Helper<\Cake\View\View>
@@ -29,11 +29,11 @@ class PasskeysHelper extends Helper
             return '';
         }
         $nonce = $this->getCspNonce();
-        // Honor `Passkeys.urlPrefix` — the routes mount under that prefix,
+        // Honor `CakePasskeys.urlPrefix` — the routes mount under that prefix,
         // and so does the bundled JS asset served from /webroot/dist. A
         // hard-coded /passkeys path 404s on hosts that remapped to
         // /auth/passkeys or similar.
-        $prefix = rtrim((string)Configure::read('Passkeys.urlPrefix', '/passkeys'), '/');
+        $prefix = rtrim((string)Configure::read('CakePasskeys.urlPrefix', '/passkeys'), '/');
         $src = Router::url($prefix . '/dist/passkeys.min.js', true);
         $nonceAttr = $nonce !== null ? sprintf(' nonce="%s"', $this->escape($nonce)) : '';
 
@@ -47,7 +47,7 @@ class PasskeysHelper extends Helper
      */
     public function loginButton(array $opts = []): string
     {
-        return (string)$this->_View->cell('Passkeys.LoginButton', $opts);
+        return (string)$this->_View->cell('CakePasskeys.LoginButton', $opts);
     }
 
     /**
@@ -75,32 +75,32 @@ class PasskeysHelper extends Helper
     {
         $endpoints = [
             'registerStart' => Router::url([
-                'plugin' => 'Passkeys',
+                'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
                 'action' => 'registerStart',
             ]),
             'registerFinish' => Router::url([
-                'plugin' => 'Passkeys',
+                'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
                 'action' => 'registerFinish',
             ]),
             'loginStart' => Router::url([
-                'plugin' => 'Passkeys',
+                'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
                 'action' => 'loginStart',
             ]),
             'loginFinish' => Router::url([
-                'plugin' => 'Passkeys',
+                'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
                 'action' => 'loginFinish',
             ]),
             'reauthStart' => Router::url([
-                'plugin' => 'Passkeys',
+                'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
                 'action' => 'reauthStart',
             ]),
             'reauthFinish' => Router::url([
-                'plugin' => 'Passkeys',
+                'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
                 'action' => 'reauthFinish',
             ]),
@@ -117,7 +117,7 @@ class PasskeysHelper extends Helper
      */
     public function isEnabled(): bool
     {
-        return (bool)Configure::read('Passkeys.enabled');
+        return (bool)Configure::read('CakePasskeys.enabled');
     }
 
     /**
@@ -125,7 +125,7 @@ class PasskeysHelper extends Helper
      */
     public function jsVersion(): string
     {
-        return PasskeysPlugin::JS_VERSION;
+        return CakePasskeysPlugin::JS_VERSION;
     }
 
     /**

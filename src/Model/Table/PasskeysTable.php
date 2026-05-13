@@ -2,17 +2,17 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Model\Table;
+namespace CakePasskeys\Model\Table;
 
 use Cake\ORM\Table;
 use Cake\Validation\Validator;
-use Passkeys\Model\Entity\Passkey;
+use CakePasskeys\Model\Entity\Passkey;
 
 /**
- * @method \Passkeys\Model\Entity\Passkey get(mixed $primaryKey, array<string, mixed> $options = [])
- * @method \Passkeys\Model\Entity\Passkey newEmptyEntity()
- * @method \Passkeys\Model\Entity\Passkey newEntity(array<string, mixed> $data, array<string, mixed> $options = [])
- * @method \Passkeys\Model\Entity\Passkey saveOrFail(\Cake\Datasource\EntityInterface $entity, array<string, mixed> $options = [])
+ * @method \CakePasskeys\Model\Entity\Passkey get(mixed $primaryKey, array<string, mixed> $options = [])
+ * @method \CakePasskeys\Model\Entity\Passkey newEmptyEntity()
+ * @method \CakePasskeys\Model\Entity\Passkey newEntity(array<string, mixed> $data, array<string, mixed> $options = [])
+ * @method \CakePasskeys\Model\Entity\Passkey saveOrFail(\Cake\Datasource\EntityInterface $entity, array<string, mixed> $options = [])
  */
 class PasskeysTable extends Table
 {

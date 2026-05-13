@@ -2,19 +2,19 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Service;
+namespace CakePasskeys\Test\TestCase\Service;
 
 use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
+use CakePasskeys\Service\NudgePolicy;
 use DateTimeImmutable;
-use Passkeys\Service\NudgePolicy;
 
 class NudgePolicyTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('Passkeys.nudge', [
+        Configure::write('CakePasskeys.nudge', [
             'enabled' => true,
             'afterLogins' => 3,
             'redisplayAfterDays' => 14,
@@ -50,7 +50,7 @@ class NudgePolicyTest extends TestCase
 
     public function testHiddenWhenDisabled(): void
     {
-        Configure::write('Passkeys.nudge.enabled', false);
+        Configure::write('CakePasskeys.nudge.enabled', false);
         $this->assertFalse((new NudgePolicy())->shouldShow(0, 5, null));
     }
 }

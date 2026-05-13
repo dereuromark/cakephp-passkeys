@@ -2,20 +2,20 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Service;
+namespace CakePasskeys\Test\TestCase\Service;
 
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\ORM\Entity;
 use Cake\TestSuite\TestCase;
+use CakePasskeys\Contract\PasskeyUserInterface;
+use CakePasskeys\Service\AaguidLabelResolver;
+use CakePasskeys\Service\ChallengeStore;
+use CakePasskeys\Service\ConventionUserAdapter;
+use CakePasskeys\Service\UserResolver;
+use CakePasskeys\Service\WebAuthnException;
+use CakePasskeys\Service\WebAuthnService;
 use Migrations\Migrations;
-use Passkeys\Contract\PasskeyUserInterface;
-use Passkeys\Service\AaguidLabelResolver;
-use Passkeys\Service\ChallengeStore;
-use Passkeys\Service\ConventionUserAdapter;
-use Passkeys\Service\UserResolver;
-use Passkeys\Service\WebAuthnException;
-use Passkeys\Service\WebAuthnService;
 
 class WebAuthnServiceTest extends TestCase
 {
@@ -30,20 +30,20 @@ class WebAuthnServiceTest extends TestCase
         // mirror that here so service tests don't have to boot the plugin.
         Cache::drop('passkeys_challenges');
         Cache::setConfig('passkeys_challenges', ['className' => 'Array', 'duration' => 300]);
-        Configure::write('Passkeys.rpId', 'localhost');
-        Configure::write('Passkeys.rpName', 'Test');
-        Configure::write('Passkeys.maxPerUser', 5);
-        Configure::write('Passkeys.challengeTtl', 300);
-        Configure::write('Passkeys.cache', 'default');
-        Configure::write('Passkeys.ceremony', [
+        Configure::write('CakePasskeys.rpId', 'localhost');
+        Configure::write('CakePasskeys.rpName', 'Test');
+        Configure::write('CakePasskeys.maxPerUser', 5);
+        Configure::write('CakePasskeys.challengeTtl', 300);
+        Configure::write('CakePasskeys.cache', 'default');
+        Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
             'attestation' => 'none',
             'timeout' => 60_000,
         ]);
-        Configure::write('Passkeys.tenancy.column', null);
+        Configure::write('CakePasskeys.tenancy.column', null);
 
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
 
@@ -106,7 +106,7 @@ class WebAuthnServiceTest extends TestCase
     /**
      * @param int $id
      *
-     * @return \Passkeys\Contract\PasskeyUserInterface
+     * @return \CakePasskeys\Contract\PasskeyUserInterface
      */
     private function makeUser(int $id): PasskeyUserInterface
     {

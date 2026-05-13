@@ -21,14 +21,14 @@ Per the WebAuthn / FIDO2 specs, delegated to
   stored count when non-zero. Synced passkeys (iCloud Keychain, Google
   Password Manager) always return `signCount = 0` and are accepted
   unconditionally — by spec, those don't track a counter.
-- **User verification.** Configurable via `Passkeys.ceremony.userVerification`
+- **User verification.** Configurable via `CakePasskeys.ceremony.userVerification`
   (default `required` on login). When `required`, the library rejects
   ceremonies whose `UV` flag is unset.
 
 ## What the plugin manages itself
 
 - **Challenge nonce store.** Each `start*` call issues a random 16-byte
-  challenge, stores it in a cache engine with `Passkeys.challengeTtl`
+  challenge, stores it in a cache engine with `CakePasskeys.challengeTtl`
   duration (default 300 s), and consumes it on the matching `finish*`
   call. One-shot semantics — replay is rejected because the second
   consume returns null.
@@ -36,7 +36,7 @@ Per the WebAuthn / FIDO2 specs, delegated to
   authenticator is **never** the raw DB row id. It is
   `hash_hmac('sha256', $userId, Security::salt())`. Compromising a
   passkey row does not reveal the host's primary-key sequence.
-- **Per-user cap.** `Passkeys.maxPerUser` (default 5) caps the number
+- **Per-user cap.** `CakePasskeys.maxPerUser` (default 5) caps the number
   of passkeys a single user can register. Prevents the abuse case where
   an attacker who briefly compromises a session piles dozens of their
   own passkeys onto the account.
@@ -50,8 +50,8 @@ Per the WebAuthn / FIDO2 specs, delegated to
 These are deliberate seams. The plugin documents them; the host wires.
 
 - **Rate limiting.** The plugin ships a `NullRateLimiter` (no-op) by
-  default. Bind your own `Passkeys\Contract\RateLimiterInterface`
-  implementation via `Passkeys.rateLimiter` config. Recommended
+  default. Bind your own `CakePasskeys\Contract\RateLimiterInterface`
+  implementation via `CakePasskeys.rateLimiter` config. Recommended
   protection: per-IP throttle on `loginStart` (unauthenticated, open
   to enumeration); per-user-handle throttle on `registerStart`.
 - **CSRF skip on the plugin's 8 endpoints.** The plugin's URLs handle
@@ -63,12 +63,12 @@ These are deliberate seams. The plugin documents them; the host wires.
 - **Audit logging.** All four lifecycle events fire on the Cake event
   manager. Host subscribes and writes whatever audit shape it uses.
 - **Identity hand-off after login.** The plugin writes the configured
-  session key (`Passkeys.session.userIdKey`, default `Auth.id`) on
+  session key (`CakePasskeys.session.userIdKey`, default `Auth.id`) on
   successful login. Host's auth middleware reads it; the plugin does
   not call `setIdentity()` directly because every auth stack has a
   different identity object shape.
 - **Recovery flow.** See [Modes — Recovery](Modes.md#recovery---host-owned).
-- **`Passkeys.enabled = false`.** When the master switch is off, the
+- **`CakePasskeys.enabled = false`.** When the master switch is off, the
   plugin's `beforeFilter()` returns 404 on all 8 endpoints and the
   Cells / Helper render empty. Host should hide its own related UI too
   if any survived.

@@ -7,5 +7,5 @@ use Cake\Routing\RouteBuilder;
 $routes->setRouteClass(\Cake\Routing\Route\DashedRoute::class);
 
 $routes->scope('/', function (RouteBuilder $builder): void {
-    // The Passkeys plugin owns its own routes via PasskeysPlugin::routes().
+    // The Passkeys plugin owns its own routes via CakePasskeysPlugin::routes().
 });

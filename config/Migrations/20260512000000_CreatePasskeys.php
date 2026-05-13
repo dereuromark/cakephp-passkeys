@@ -39,7 +39,7 @@ class CreatePasskeys extends BaseMigration
                 'limit' => 191,
             ]);
 
-        $tenancyColumn = Configure::read('Passkeys.tenancy.column');
+        $tenancyColumn = Configure::read('CakePasskeys.tenancy.column');
         if ($tenancyColumn) {
             $table->addColumn($tenancyColumn, 'integer', ['null' => true])
                 ->addIndex([$tenancyColumn]);

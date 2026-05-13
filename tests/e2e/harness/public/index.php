@@ -33,8 +33,8 @@ use Cake\Routing\RouteBuilder;
 use Cake\Utility\Security;
 use Cake\View\View;
 use Migrations\Migrations;
-use Passkeys\PasskeysPlugin;
-use Passkeys\View\Helper\PasskeysHelper;
+use CakePasskeys\CakePasskeysPlugin;
+use CakePasskeys\View\Helper\PasskeysHelper;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -97,7 +97,7 @@ Configure::write('App', [
     'defaultLocale' => 'en_US',
     'paths' => ['plugins' => []],
 ]);
-Configure::write('Passkeys', [
+Configure::write('CakePasskeys', [
     'enabled' => true,
     'rpId' => 'localhost',
     'rpName' => 'Harness',
@@ -142,7 +142,7 @@ $conn->execute("INSERT OR IGNORE INTO users (id, email, name) VALUES (1, 'alice@
 // exists" because the phinxlog ledger lives in a separate connection.
 // Migrate only on the first request (= when the table is missing).
 if (!in_array('passkeys', $conn->getSchemaCollection()->listTables(), true)) {
-    $migrations = new Migrations(['connection' => 'default', 'plugin' => 'Passkeys']);
+    $migrations = new Migrations(['connection' => 'default', 'plugin' => 'CakePasskeys']);
     $migrations->migrate();
 }
 
@@ -210,14 +210,14 @@ final class HarnessRenderMiddleware implements MiddlewareInterface
     {
         $cakeRequest = $request instanceof ServerRequest ? $request : new ServerRequest();
         $view = new View($cakeRequest);
-        /** @var \Passkeys\View\Helper\PasskeysHelper $passkeys */
+        /** @var \CakePasskeys\View\Helper\PasskeysHelper $passkeys */
         $passkeys = $view->loadHelper('Passkeys', ['className' => PasskeysHelper::class]);
 
         $body = '';
         if ($isLogin) {
             $body = '<h1>Login</h1>' . $passkeys->loginButton();
         } else {
-            $body = '<h1>Settings</h1>' . (string)$view->cell('Passkeys.Manager');
+            $body = '<h1>Settings</h1>' . (string)$view->cell('CakePasskeys.Manager');
         }
 
         return '<!doctype html><html><head><meta charset="utf-8"><title>'
@@ -232,8 +232,8 @@ final class HarnessApplication extends BaseApplication
     public function bootstrap(): void
     {
         parent::bootstrap();
-        if (!$this->getPlugins()->has('Passkeys')) {
-            $this->addPlugin(PasskeysPlugin::class);
+        if (!$this->getPlugins()->has('CakePasskeys')) {
+            $this->addPlugin(CakePasskeysPlugin::class);
         }
     }
 

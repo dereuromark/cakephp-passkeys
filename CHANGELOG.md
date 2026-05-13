@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING: PHP namespace renamed `Passkeys\` → `CakePasskeys\`.** The
+  generic `Passkeys` namespace collided with the literal `passkeys`
+  table name and other host symbols. All Configure keys, event names,
+  cell aliases, session keys, table-plugin alias, and the routes
+  plugin alias now use the `CakePasskeys` prefix:
+  - `Configure::read('Passkeys.foo')` → `Configure::read('CakePasskeys.foo')`
+  - `getEventManager()->on('Passkeys.afterLogin', ...)` → `'CakePasskeys.afterLogin'`
+  - `$this->cell('Passkeys.Manager')` → `$this->cell('CakePasskeys.Manager')`
+  - `addPlugin('Passkeys')` → `addPlugin('CakePasskeys')`
+  - `[Passkeys.Passkeys]` ACL section → `[CakePasskeys.Passkeys]`
+
+  Unchanged for stable surface area: `composer require dereuromark/cakephp-passkeys`,
+  `npm install @dereuromark/cakephp-passkeys`, the `/passkeys/` URL prefix,
+  `$this->Passkeys->script()` helper property, the `passkeys` table name,
+  and asset filenames.
+
 ## [0.1.0] - 2026-05-13
 
 ### Fixed

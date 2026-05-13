@@ -6,7 +6,7 @@ use function Cake\I18n\__d;
 /**
  * @var \Cake\View\View $this
  * @var bool $hidden
- * @var array<\Passkeys\Model\Entity\Passkey> $passkeys
+ * @var array<\CakePasskeys\Model\Entity\Passkey> $passkeys
  * @var bool $atCap
  * @var int $maxPerUser
  * @var string|null $docsUrl
@@ -55,7 +55,7 @@ if ($hidden) {
                     <td>
                         <?= $this->Form->postLink(
                             __d('passkeys', 'Delete'),
-                            ['plugin' => 'Passkeys', 'controller' => 'Passkeys', 'action' => 'delete', $p->id],
+                            ['plugin' => 'CakePasskeys', 'controller' => 'Passkeys', 'action' => 'delete', $p->id],
                             [
                                 'confirm' => __d('passkeys', 'Delete this passkey?'),
                                 'block' => true,

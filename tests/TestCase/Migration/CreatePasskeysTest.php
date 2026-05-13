@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Passkeys\Test\TestCase\Migration;
+namespace CakePasskeys\Test\TestCase\Migration;
 
 use Cake\Core\Configure;
 use Cake\Datasource\ConnectionManager;
@@ -13,14 +13,14 @@ class CreatePasskeysTest extends TestCase
 {
     protected function tearDown(): void
     {
-        Configure::write('Passkeys.tenancy.column', null);
+        Configure::write('CakePasskeys.tenancy.column', null);
         parent::tearDown();
     }
 
     public function testMigrationCreatesPasskeysTable(): void
     {
-        Configure::write('Passkeys.tenancy.column', null);
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        Configure::write('CakePasskeys.tenancy.column', null);
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
 
@@ -43,8 +43,8 @@ class CreatePasskeysTest extends TestCase
 
     public function testMigrationCreatesTenancyColumnWhenConfigured(): void
     {
-        Configure::write('Passkeys.tenancy.column', 'account_id');
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'Passkeys']);
+        Configure::write('CakePasskeys.tenancy.column', 'account_id');
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
 
