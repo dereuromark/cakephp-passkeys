@@ -1,25 +1,16 @@
 # Documentation
 
-User-facing docs for `dereuromark/cakephp-passkeys`. For installation,
-configuration, and the full host-touchpoint walkthrough, see the
-top-level [README.md](../README.md).
+Installation, configuration and usage are in the [README](../README.md).
 
 ## Topics
 
-- [Adoption](Adoption.md) — checklist for adding the plugin to an
-  existing CakePHP 5 app, including how to handle a host that already
-  has its own `passkeys` table from a pre-plugin migration.
-- [Modes](Modes.md) — passwordless vs 2FA mode. Picking one is a host
-  policy decision; the plugin supports both equally.
-- [JS API](JsApi.md) — npm package entry points, framework adapters,
-  the zero-build IIFE bundle, the `data-passkey-*` attribute contract.
-- [Events](Events.md) — the four lifecycle events the plugin fires and
-  how to subscribe from your `AppController`.
-- [Security model](SecurityModel.md) — what the plugin verifies, what
-  it leaves to the host, the rate-limiter contract, CSRF skip rationale.
+- [Sign-in and re-confirmation](Modes.md): what a passkey sign-in does, how your application picks up the user, and how to ask for a fresh confirmation.
+- [JS API](JsApi.md): the bundle, the `data-passkey-*` attributes, the npm package and its framework adapters.
+- [Events](Events.md): the four events and where to attach listeners.
+- [Security model](SecurityModel.md): what the plugin checks and what it leaves to your application.
 
 ## See also
 
 - Vulnerability reporting: [SECURITY.md](../SECURITY.md)
-- Contribution + release flow: [CONTRIBUTING.md](../CONTRIBUTING.md)
-- Versioned changes: [CHANGELOG.md](../CHANGELOG.md)
+- Contributing: [CONTRIBUTING.md](../CONTRIBUTING.md)
+- Changes per version: [CHANGELOG.md](../CHANGELOG.md)

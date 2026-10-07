@@ -67,7 +67,7 @@
         "test": "vitest run",
         "test:watch": "vitest",
         "typecheck": "tsc --noEmit",
-        "vendor:webroot": "node -e \"const fs=require('fs'); fs.mkdirSync('webroot/dist',{recursive:true}); fs.cpSync('dist/bundle.iife.js','webroot/dist/passkeys.min.js'); fs.cpSync('dist/bundle.iife.js.map','webroot/dist/passkeys.min.js.map')\""
+        "vendor:webroot": "node scripts/vendor-webroot.mjs"
     },
     "peerDependencies": {
         "@hotwired/stimulus": ">=3",

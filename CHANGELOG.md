@@ -7,106 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
-
-- **BREAKING: PHP namespace renamed `Passkeys\` → `CakePasskeys\`.** The
-  generic `Passkeys` namespace collided with the literal `passkeys`
-  table name and other host symbols. All Configure keys, event names,
-  cell aliases, session keys, table-plugin alias, and the routes
-  plugin alias now use the `CakePasskeys` prefix:
-  - `Configure::read('Passkeys.foo')` → `Configure::read('CakePasskeys.foo')`
-  - `getEventManager()->on('Passkeys.afterLogin', ...)` → `'CakePasskeys.afterLogin'`
-  - `$this->cell('Passkeys.Manager')` → `$this->cell('CakePasskeys.Manager')`
-  - `addPlugin('Passkeys')` → `addPlugin('CakePasskeys')`
-  - `[Passkeys.Passkeys]` ACL section → `[CakePasskeys.Passkeys]`
-
-  Unchanged for stable surface area: `composer require dereuromark/cakephp-passkeys`,
-  `npm install @dereuromark/cakephp-passkeys`, the `/passkeys/` URL prefix,
-  `$this->Passkeys->script()` helper property, the `passkeys` table name,
-  and asset filenames.
-
-### Fixed
-
-- PostgreSQL: passkeys can be stored and looked up. The binary columns
-  were bound as text, which PostgreSQL rejects for `bytea`.
-- Login and reauthentication work. Every assertion was rejected with an
-  invalid user handle, because the credential was checked against the
-  database id and not the handle it was registered with.
-- **Security:** a passkey of a deactivated or deleted user no longer logs in.
-- Malformed responses and failed library checks are reported as a 400, not
-  as a server error.
-- EdDSA is no longer offered at registration. Such a credential could be
-  registered but its signature never verified.
-
-## [0.1.0] - 2026-05-13
-
-### Fixed
-
-- **Security: session ID is now renewed on passkey login** before any
-  identity-bearing data is written to the session. Closes the
-  session-fixation hole where a pre-seeded cookie could be promoted to
-  an authenticated session.
-- **Security: `Passkeys.challengeTtl` is now actually honored.** The
-  plugin registers a dedicated `passkeys_challenges` cache engine on
-  bootstrap with `duration` pinned to the configured TTL; previously
-  Cake's default cache duration applied and challenges could outlive
-  their intended window.
-- **API: `loginStart` now accepts `emailHint` from the JSON body** (the
-  shape the shipped JS client sends), in addition to the legacy
-  `?email=` query string. Body wins when both are present.
-- **Master switch: `Passkeys.enabled = false` now 404s every controller
-  endpoint.** Previously the flag only hid UI cells while the JSON API
-  stayed live and probable. Test coverage widened to a dataProvider
-  hitting all 8 endpoints with their documented verbs.
-- **JS: `PasskeysHelper::reauthGuard()` forms now actually trigger the
-  reauth ceremony on submit.** The binder previously rendered the
-  attribute but no client wired it up.
-- **Helper: `PasskeysHelper::script()` now honors `Passkeys.urlPrefix`
-  when emitting the bundled JS URL.** Hosts that mount the plugin
-  under a custom prefix (e.g. `/auth/passkeys`) previously saw the
-  asset 404 because the path was hard-coded to `/passkeys/dist/...`.
-
-### Changed
-
-- **`Passkeys.session.userIdKey` is now configurable** (default
-  `Auth.id`). `loginFinish()` writes the authenticated user id to
-  this session path on a successful ceremony. Hosts using
-  `cakephp/authentication` typically point this at `Identity.id` or
-  similar; the default preserves the legacy `AuthComponent` shape so
-  existing setups are unaffected. Hosts that subscribe to
-  `Passkeys.afterLogin` can ignore this entirely.
-- `PasskeyUserInterface::getUserId()` narrowed from `int|string` to
-  `int`. Several controller call sites already cast to `int`, and the
-  migration stores `user_id` as INTEGER — the previous contract lied.
-  UUID / string IDs are not supported in v0.1; see `README.md` under
-  *Limitations*.
+Initial release.
 
 ### Added
 
-- Initial public release.
-- PHP plugin with `WebAuthnService`, `PasskeysController` (8 JSON
-  actions), `Manager` / `LoginButton` / `RegisterNudge` cells,
-  `PasskeysHelper`, `NudgePolicy`, AAGUID label resolver with bundled
-  snapshot, `UserResolver` (convention) plus `PasskeyUserInterface`
-  (override).
-- npm package `dereuromark/cakephp-passkeys` with vanilla core plus
-  React, Vue, Alpine, and Stimulus adapters and a zero-build IIFE
-  bundle (6 kB / 2.18 kB gzipped).
-- 4 events: `afterRegister`, `afterLogin`, `afterRename`, `afterDelete`.
-- Conditional UI helper for the autofill-chip path.
-- Emoji column and AAGUID device-type labels in the manager cell.
-- de_DE and en_US translations for the `passkeys` domain.
-- Playwright smoke E2E (manager cell renders, login binder unhides the
-  button, bundle URL resolves, virtual authenticator attaches).
-- Tested against PHP 8.2 / 8.3 / 8.4 with CakePHP 5.x (PHPUnit 11).
-  Browser support: Chrome/Edge 109+, Firefox 122+, Safari 16+.
-
-### Known limitations
-
-- 3 unit tests are marked `markTestIncomplete` pending captured
-  authenticator-response fixtures for end-to-end ceremony validation.
-  Coverage will land in a follow-up PR; current unit tests already
-  exercise challenge replay rejection, RP-ID mismatch, and counter
-  rollback via direct method calls.
-- iOS 16 may reject WebAuthn calls after an intermediate `fetch()` (no
-  user-activation propagation). iOS 17+ confirmed working.
+- Passkey registration, sign-in and re-confirmation for CakePHP 5, as eight
+  JSON endpoints on top of `web-auth/webauthn-lib`.
+- `Manager`, `LoginButton` and `RegisterNudge` cells and the `Passkeys` helper.
+- JavaScript bundle shipped as a plugin asset, binding `data-passkey-*`
+  attributes. The same code is on npm with React, Vue, Alpine and Stimulus
+  adapters.
+- Events `CakePasskeys.afterRegister`, `afterLogin`, `afterRename` and
+  `afterDelete`.
+- `Reauth::isFresh()` to check a recent passkey confirmation on the server.
+- Works with integer, big integer, UUID and string user ids
+  (`CakePasskeys.users.idType`).
+- The current user comes from `CakePasskeys.identityResolver`, the `identity`
+  request attribute or a session key.
+- Tested on SQLite, MySQL and PostgreSQL.
+- de_DE and en_US translations.

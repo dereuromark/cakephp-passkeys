@@ -12,7 +12,7 @@
  * we switch to a prefetch-on-mouseenter strategy.
  */
 
-import { authenticate, conditional, isConditionalSupported, isSupported, reauth, register } from './core';
+import { authenticate, conditional, isConditionalSupported, isSupported, reauth, register, remove, rename } from './core';
 import type { Endpoints } from './types';
 
 export function bind(root: ParentNode = document): void {
@@ -77,6 +77,60 @@ export function bind(root: ParentNode = document): void {
         });
     });
 
+    // Manager rows: <tr data-passkey-row data-passkey-id="7"> with a rename
+    // and a delete button inside.
+    root.querySelectorAll<HTMLButtonElement>('[data-passkey-rename]').forEach((btn) => {
+        if (btn.dataset.passkeyBound === '1') return;
+        btn.dataset.passkeyBound = '1';
+        btn.addEventListener('click', async () => {
+            const row = btn.closest<HTMLElement>('[data-passkey-row]');
+            const id = row?.dataset.passkeyId;
+            if (!row || !id) return;
+            const label = row.querySelector<HTMLElement>('[data-passkey-name]');
+            const name = window.prompt(btn.dataset.passkeyPrompt ?? 'New name', label?.textContent?.trim() ?? '');
+            if (!name || !name.trim()) return;
+            try {
+                const passkey = await rename({ endpoints, id, name: name.trim() });
+                if (label) label.textContent = passkey.name;
+            } catch (e) {
+                announceError(e);
+            }
+        });
+    });
+
+    root.querySelectorAll<HTMLButtonElement>('[data-passkey-delete]').forEach((btn) => {
+        if (btn.dataset.passkeyBound === '1') return;
+        btn.dataset.passkeyBound = '1';
+        btn.addEventListener('click', async () => {
+            const row = btn.closest<HTMLElement>('[data-passkey-row]');
+            const id = row?.dataset.passkeyId;
+            if (!row || !id) return;
+            const question = btn.dataset.passkeyConfirm;
+            if (question && !window.confirm(question)) return;
+            try {
+                await remove({ endpoints, id });
+                window.location.reload();
+            } catch (e) {
+                announceError(e);
+            }
+        });
+    });
+
+    // The nudge is rendered hidden and shown here unless it was dismissed
+    // recently. The dismissal lives in localStorage, per browser.
+    root.querySelectorAll<HTMLElement>('[data-passkey-nudge]').forEach((nudge) => {
+        if (nudge.dataset.passkeyBound === '1') return;
+        nudge.dataset.passkeyBound = '1';
+        const days = Number(nudge.dataset.passkeyNudgeDays ?? '14');
+        const dismissedAt = Number(readStored(NUDGE_KEY) ?? '0');
+        const hiddenUntil = dismissedAt + days * 24 * 60 * 60 * 1000;
+        if (isSupported() && Date.now() >= hiddenUntil) nudge.hidden = false;
+        nudge.querySelector<HTMLElement>('[data-passkey-nudge-dismiss]')?.addEventListener('click', () => {
+            writeStored(NUDGE_KEY, String(Date.now()));
+            nudge.hidden = true;
+        });
+    });
+
     root.querySelectorAll<HTMLInputElement>('[data-passkey-conditional]').forEach((input) => {
         if (input.dataset.passkeyBound === '1') return;
         input.dataset.passkeyBound = '1';
@@ -105,6 +159,24 @@ function readEndpoints(root: ParentNode): Endpoints | null {
         return JSON.parse(meta.content) as Endpoints;
     } catch {
         return null;
+    }
+}
+
+const NUDGE_KEY = 'passkeys.nudgeDismissedAt';
+
+function readStored(key: string): string | null {
+    try {
+        return window.localStorage.getItem(key);
+    } catch {
+        return null;
+    }
+}
+
+function writeStored(key: string, value: string): void {
+    try {
+        window.localStorage.setItem(key, value);
+    } catch {
+        /* storage blocked: the nudge shows again next time */
     }
 }
 

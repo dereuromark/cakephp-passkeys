@@ -5,6 +5,12 @@ export interface Endpoints {
     loginFinish: string;
     reauthStart: string;
     reauthFinish: string;
+    /** URL with an `__id__` placeholder for the passkey id. */
+    rename?: string;
+    /** URL with an `__id__` placeholder for the passkey id. */
+    delete?: string;
+    /** CSRF token of the application, sent with every request. */
+    csrfToken?: string;
 }
 
 export interface PasskeyResult {

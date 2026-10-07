@@ -46,7 +46,6 @@ class WebAuthnServiceTest extends TestCase
             'attestation' => 'none',
             'timeout' => 60_000,
         ]);
-        Configure::write('CakePasskeys.tenancy.column', null);
 
         Configure::write('CakePasskeys.users', [
             'table' => 'Users',

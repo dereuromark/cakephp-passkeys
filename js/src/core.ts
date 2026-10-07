@@ -148,6 +148,10 @@ export interface ReauthOpts {
 
 // --- ceremonies -----------------------------------------------------------
 
+function token(opts: { endpoints: Endpoints; csrfToken?: string }): string | undefined {
+    return opts.csrfToken ?? opts.endpoints.csrfToken;
+}
+
 function notSupported(): never {
     throw new PasskeyNotSupportedError('Passkeys are not supported in this browser.');
 }
@@ -155,7 +159,7 @@ function notSupported(): never {
 export async function register(opts: RegisterOpts): Promise<PasskeyResult> {
     if (!isSupported()) notSupported();
 
-    const options = await postJson(opts.endpoints.registerStart, opts.csrfToken);
+    const options = await postJson(opts.endpoints.registerStart, token(opts));
     const publicKey = reviveCreateOptions(options);
 
     let credential: PublicKeyCredential;
@@ -167,7 +171,7 @@ export async function register(opts: RegisterOpts): Promise<PasskeyResult> {
         throw classify(e);
     }
 
-    const data = await postJson(opts.endpoints.registerFinish, opts.csrfToken, {
+    const data = await postJson(opts.endpoints.registerFinish, token(opts), {
         response: serializeAttestation(credential),
         name: opts.name,
         emoji: opts.emoji,
@@ -180,7 +184,7 @@ export async function authenticate(opts: AuthOpts): Promise<AuthResult> {
     if (!isSupported()) notSupported();
 
     const startBody = opts.emailHint ? { emailHint: opts.emailHint } : undefined;
-    const options = await postJson(opts.endpoints.loginStart, opts.csrfToken, startBody);
+    const options = await postJson(opts.endpoints.loginStart, token(opts), startBody);
     const publicKey = reviveGetOptions(options);
 
     let credential: PublicKeyCredential;
@@ -192,7 +196,7 @@ export async function authenticate(opts: AuthOpts): Promise<AuthResult> {
         throw classify(e);
     }
 
-    return await postJson(opts.endpoints.loginFinish, opts.csrfToken, {
+    return await postJson(opts.endpoints.loginFinish, token(opts), {
         response: serializeAssertion(credential),
         challengeKey: options.challengeKey,
     }) as AuthResult;
@@ -201,7 +205,7 @@ export async function authenticate(opts: AuthOpts): Promise<AuthResult> {
 export async function conditional(opts: ConditionalOpts): Promise<void> {
     if (!isSupported()) return;
 
-    const options = await postJson(opts.endpoints.loginStart, opts.csrfToken);
+    const options = await postJson(opts.endpoints.loginStart, token(opts));
     const publicKey = reviveGetOptions(options);
 
     let credential: PublicKeyCredential | null;
@@ -218,7 +222,7 @@ export async function conditional(opts: ConditionalOpts): Promise<void> {
     }
     if (!credential) return;
 
-    const result = await postJson(opts.endpoints.loginFinish, opts.csrfToken, {
+    const result = await postJson(opts.endpoints.loginFinish, token(opts), {
         response: serializeAssertion(credential),
         challengeKey: options.challengeKey,
     }) as AuthResult;
@@ -228,7 +232,7 @@ export async function conditional(opts: ConditionalOpts): Promise<void> {
 export async function reauth(opts: ReauthOpts): Promise<{ ok: true; until: string }> {
     if (!isSupported()) notSupported();
 
-    const options = await postJson(opts.endpoints.reauthStart, opts.csrfToken, { action: opts.action });
+    const options = await postJson(opts.endpoints.reauthStart, token(opts), { action: opts.action });
     const publicKey = reviveGetOptions(options);
 
     let credential: PublicKeyCredential;
@@ -240,9 +244,33 @@ export async function reauth(opts: ReauthOpts): Promise<{ ok: true; until: strin
         throw classify(e);
     }
 
-    return await postJson(opts.endpoints.reauthFinish, opts.csrfToken, {
+    return await postJson(opts.endpoints.reauthFinish, token(opts), {
         response: serializeAssertion(credential),
         challengeKey: options.challengeKey,
         action: opts.action,
     }) as { ok: true; until: string };
+}
+
+// --- management -----------------------------------------------------------
+
+export interface ManageOpts {
+    endpoints: Endpoints;
+    id: number | string;
+    csrfToken?: string;
+}
+
+function withId(template: string | undefined, id: number | string): string {
+    if (!template) throw new PasskeyServerError('Endpoint is not configured.', 0);
+    return template.replace('__id__', encodeURIComponent(String(id)));
+}
+
+export async function rename(opts: ManageOpts & { name: string; emoji?: string | null }): Promise<PasskeyResult> {
+    const body: Record<string, unknown> = { name: opts.name };
+    if (opts.emoji !== undefined) body.emoji = opts.emoji;
+    const data = await postJson(withId(opts.endpoints.rename, opts.id), opts.csrfToken ?? opts.endpoints.csrfToken, body);
+    return data.passkey;
+}
+
+export async function remove(opts: ManageOpts): Promise<void> {
+    await postJson(withId(opts.endpoints.delete, opts.id), opts.csrfToken ?? opts.endpoints.csrfToken, {});
 }

@@ -24,3 +24,4 @@
 /tests/           export-ignore
 /tsconfig.json    export-ignore
 /vite.config.ts   export-ignore
+/scripts/        export-ignore

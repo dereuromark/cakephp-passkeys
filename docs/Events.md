@@ -1,8 +1,6 @@
 # Events
 
-The plugin fires four events on the global Cake `EventManager`. Host
-apps subscribe to wire audit logging, identity setting, analytics, or
-any other side effect.
+The plugin dispatches four events on the global event manager.
 
 ## Events
 
@@ -30,57 +28,33 @@ class PasskeyEvent
 Credential IDs in payloads are **base64url-encoded**. Never include the
 raw binary in logs.
 
-## Subscription pattern
+## Attaching listeners
 
-In `AppController::beforeFilter()`:
-
-```php
-public function beforeFilter(\Cake\Event\EventInterface $event): void
-{
-    parent::beforeFilter($event);
-    $em = $this->getEventManager();
-
-    $em->on('CakePasskeys.afterRegister', function ($cakeEvent) {
-        $payload = $cakeEvent->getData('event');  // PasskeyEvent
-        $this->fetchTable('AuditLogs')->writeLog(
-            'passkey_registered',
-            $payload->getPasskey()->user_id,
-            [
-                'passkey_id' => $payload->getPasskey()->id,
-                'name' => $payload->getPasskey()->name,
-                'credential_id' => $payload->getCredentialIdBase64Url(),
-            ],
-        );
-    });
-
-    $em->on('CakePasskeys.afterLogin', function ($cakeEvent) {
-        $payload = $cakeEvent->getData('event');
-        // Set identity, record login, etc.
-    });
-
-    // afterRename, afterDelete: same shape.
-}
-```
-
-## Alternative: global subscriber
-
-For larger codebases, register a dedicated subscriber class in
-`Application::bootstrap()`:
+The events are dispatched on the global event manager, from the plugin's own controller. That controller does not extend your `AppController`, so a listener attached in `AppController::beforeFilter()` never runs. Attach listeners where they exist for every request, such as `Application::bootstrap()`:
 
 ```php
-$em = \Cake\Event\EventManager::instance();
-$em->on(new \App\Listener\PasskeysAuditSubscriber());
+use Cake\Event\EventInterface;
+use Cake\Event\EventManager;
+
+EventManager::instance()->on('CakePasskeys.afterRegister', function (EventInterface $event): void {
+    /** @var \CakePasskeys\Event\PasskeyEvent $payload */
+    $payload = $event->getData('event');
+    // $payload->getPasskey()->user_id
+    // $payload->getPasskey()->name
+    // $payload->getCredentialIdBase64Url()
+});
 ```
 
-With `PasskeysAuditSubscriber implementing EventListenerInterface` and
-the four event names in `implementedEvents()`.
+For more than one or two events, use a listener class:
 
-## What the plugin does NOT do
+```php
+EventManager::instance()->on(new \App\Listener\PasskeyListener());
+```
 
-- It does not write any audit row itself. All audit is host-controlled.
-- It does not call `setIdentity()` after login. The session flag
-  `CakePasskeys.mfa_satisfied` is set; identity hand-off is up to the host
-  (typically the `CakePasskeys.afterLogin` subscriber, or the host's
-  authentication middleware reading the configurable session key).
-- It does not retry, rate-limit, or coalesce events. Each successful
-  ceremony fires exactly one event.
+with the event names in its `implementedEvents()`.
+
+## What the plugin leaves to you
+
+- It writes no audit record. Do that in a listener.
+- It does not build your application's identity after a sign-in. It writes the user id to the configured session key and dispatches `afterLogin`.
+- `getUserHandle()` returns the opaque handle the authenticator knows the user by, the same value for all four events. The database id is `getPasskey()->user_id`.

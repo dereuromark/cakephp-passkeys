@@ -8,8 +8,8 @@ msgstr ""
 msgid "Add a passkey"
 msgstr "Add a passkey"
 
-msgid "Add a passkey to skip the password and 2FA prompt on this device."
-msgstr "Add a passkey to skip the password and 2FA prompt on this device."
+msgid "Add a passkey to sign in on this device without your password."
+msgstr "Add a passkey to sign in on this device without your password."
 
 msgid "Add another passkey"
 msgstr "Add another passkey"
@@ -73,3 +73,18 @@ msgstr "You've reached your limit of {0} passkeys."
 
 msgid "never"
 msgstr "never"
+
+msgid "New name for this passkey"
+msgstr "New name for this passkey"
+
+msgid "Invalid action name."
+msgstr "Invalid action name."
+
+msgid "Login challenge missing or expired."
+msgstr "Login challenge missing or expired."
+
+msgid "Too many attempts. Try again later."
+msgstr "Too many attempts. Try again later."
+
+msgid "Unknown passkey credential."
+msgstr "Unknown passkey credential."

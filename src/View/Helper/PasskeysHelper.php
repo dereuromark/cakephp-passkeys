@@ -8,19 +8,35 @@ use Cake\Core\Configure;
 use Cake\Routing\Router;
 use Cake\View\Helper;
 use CakePasskeys\CakePasskeysPlugin;
+use function Cake\Core\h;
 
 /**
+ * Template helpers for the passkey UI.
+ *
  * @extends \Cake\View\Helper<\Cake\View\View>
+ *
  * @property \Cake\View\Helper\HtmlHelper $Html
  */
 class PasskeysHelper extends Helper
 {
+    /**
+     * Placeholder for the passkey id in the rename and delete URLs. The
+     * JavaScript replaces it with the id of the row it acts on.
+     *
+     * @var string
+     */
+    public const ID_PLACEHOLDER = '__id__';
+
     /**
      * @var array<string>
      */
     protected array $helpers = ['Html'];
 
     /**
+     * Script tag for the bundled JavaScript, served from the plugin's webroot
+     * like any other plugin asset. It binds the `data-passkey-*` attributes
+     * once the page has loaded.
+     *
      * @return string
      */
     public function script(): string
@@ -28,20 +44,17 @@ class PasskeysHelper extends Helper
         if (!$this->isEnabled()) {
             return '';
         }
+        $options = ['block' => false];
         $nonce = $this->getCspNonce();
-        // Honor `CakePasskeys.urlPrefix` — the routes mount under that prefix,
-        // and so does the bundled JS asset served from /webroot/dist. A
-        // hard-coded /passkeys path 404s on hosts that remapped to
-        // /auth/passkeys or similar.
-        $prefix = rtrim((string)Configure::read('CakePasskeys.urlPrefix', '/passkeys'), '/');
-        $src = Router::url($prefix . '/dist/passkeys.min.js', true);
-        $nonceAttr = $nonce !== null ? sprintf(' nonce="%s"', $this->escape($nonce)) : '';
+        if ($nonce !== null) {
+            $options['nonce'] = $nonce;
+        }
 
-        return sprintf('<script src="%s"%s></script>', $this->escape($src), $nonceAttr);
+        return (string)$this->Html->script('CakePasskeys.passkeys.min', $options);
     }
 
     /**
-     * @param array<string, mixed> $opts
+     * @param array<string, mixed> $opts Options for the LoginButton cell
      *
      * @return string
      */
@@ -51,6 +64,9 @@ class PasskeysHelper extends Helper
     }
 
     /**
+     * Attributes for the username or email input that let the browser offer
+     * passkeys in its autofill dropdown.
+     *
      * @return array<string, mixed>
      */
     public function autofillAttribute(): array
@@ -59,56 +75,51 @@ class PasskeysHelper extends Helper
     }
 
     /**
-     * @param string $action
+     * Attributes for a form that needs a fresh passkey confirmation before
+     * it submits. Pass them to `Form->create()`.
      *
-     * @return string
+     * @param string $action Name the confirmation is recorded under
+     *
+     * @return array<string, string>
      */
-    public function reauthGuard(string $action): string
+    public function reauthAttributes(string $action): array
     {
-        return sprintf('<form data-passkey-reauth-required="%s"></form>', $this->escape($action));
+        return ['data-passkey-reauth-required' => $action];
     }
 
     /**
+     * Meta tag that tells the JavaScript where the endpoints are and which
+     * CSRF token to send. Put it in the `<head>` of every page that shows a
+     * passkey control.
+     *
      * @return string
      */
     public function endpointsMeta(): string
     {
-        $endpoints = [
-            'registerStart' => Router::url([
+        if (!$this->isEnabled()) {
+            return '';
+        }
+
+        $config = [];
+        foreach (['registerStart', 'registerFinish', 'loginStart', 'loginFinish', 'reauthStart', 'reauthFinish'] as $action) {
+            $config[$action] = Router::url(['plugin' => 'CakePasskeys', 'controller' => 'Passkeys', 'action' => $action]);
+        }
+        foreach (['rename', 'delete'] as $action) {
+            $config[$action] = Router::url([
                 'plugin' => 'CakePasskeys',
                 'controller' => 'Passkeys',
-                'action' => 'registerStart',
-            ]),
-            'registerFinish' => Router::url([
-                'plugin' => 'CakePasskeys',
-                'controller' => 'Passkeys',
-                'action' => 'registerFinish',
-            ]),
-            'loginStart' => Router::url([
-                'plugin' => 'CakePasskeys',
-                'controller' => 'Passkeys',
-                'action' => 'loginStart',
-            ]),
-            'loginFinish' => Router::url([
-                'plugin' => 'CakePasskeys',
-                'controller' => 'Passkeys',
-                'action' => 'loginFinish',
-            ]),
-            'reauthStart' => Router::url([
-                'plugin' => 'CakePasskeys',
-                'controller' => 'Passkeys',
-                'action' => 'reauthStart',
-            ]),
-            'reauthFinish' => Router::url([
-                'plugin' => 'CakePasskeys',
-                'controller' => 'Passkeys',
-                'action' => 'reauthFinish',
-            ]),
-        ];
+                'action' => $action,
+                static::ID_PLACEHOLDER,
+            ]);
+        }
+        $csrfToken = $this->_View->getRequest()->getAttribute('csrfToken');
+        if (is_string($csrfToken) && $csrfToken !== '') {
+            $config['csrfToken'] = $csrfToken;
+        }
 
         return sprintf(
-            '<meta name="passkeys-endpoints" content=\'%s\'>',
-            $this->escape((string)json_encode($endpoints, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            '<meta name="passkeys-endpoints" content="%s">',
+            h((string)json_encode($config, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
         );
     }
 
@@ -129,34 +140,13 @@ class PasskeysHelper extends Helper
     }
 
     /**
-     * Resolve the CSP nonce for the current request.
-     *
-     * Integrates with dereuromark/cakephp-csp when its Csp helper is loaded;
-     * otherwise falls back to the `csp_nonce` request attribute.
-     *
      * @return string|null
      */
     private function getCspNonce(): ?string
     {
-        $csp = $this->_View->helpers()->has('Csp') ? $this->_View->helpers()->get('Csp') : null;
-        if (is_object($csp) && method_exists($csp, 'nonce')) {
-            /** @var mixed $value */
-            $value = $csp->nonce();
+        $nonce = $this->_View->getRequest()->getAttribute('cspScriptNonce')
+            ?? $this->_View->getRequest()->getAttribute('csp_nonce');
 
-            return $value !== null ? (string)$value : null;
-        }
-        $nonce = $this->_View->getRequest()->getAttribute('csp_nonce');
-
-        return $nonce !== null ? (string)$nonce : null;
-    }
-
-    /**
-     * @param string $value
-     *
-     * @return string
-     */
-    private function escape(string $value): string
-    {
-        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        return is_string($nonce) && $nonce !== '' ? $nonce : null;
     }
 }

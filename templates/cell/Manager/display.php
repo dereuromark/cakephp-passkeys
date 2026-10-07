@@ -47,22 +47,20 @@ if ($hidden) {
                     <td><?= h($p->emoji ?? '🔒') ?></td>
                     <td>
                         <span data-passkey-name><?= h($p->name) ?></span>
-                        <button type="button" data-passkey-rename aria-label="<?= h(__d('passkeys', 'Rename')) ?>">✎</button>
+                        <button type="button" class="btn btn-link btn-sm"
+                                data-passkey-rename
+                                data-passkey-prompt="<?= h(__d('passkeys', 'New name for this passkey')) ?>"
+                                aria-label="<?= h(__d('passkeys', 'Rename')) ?>">✎</button>
                     </td>
                     <td><?= h($p->aaguid_label ?? __d('passkeys', 'Passkey')) ?></td>
                     <td><?= $p->created?->nice() ?></td>
                     <td><?= $p->last_used_at ? $p->last_used_at->timeAgoInWords() : __d('passkeys', 'never') ?></td>
                     <td>
-                        <?= $this->Form->postLink(
-                            __d('passkeys', 'Delete'),
-                            ['plugin' => 'CakePasskeys', 'controller' => 'Passkeys', 'action' => 'delete', $p->id],
-                            [
-                                'confirm' => __d('passkeys', 'Delete this passkey?'),
-                                'block' => true,
-                                'data-passkey-delete' => true,
-                                'escape' => false,
-                            ],
-                        ) ?>
+                        <button type="button" class="btn btn-link btn-sm"
+                                data-passkey-delete
+                                data-passkey-confirm="<?= h(__d('passkeys', 'Delete this passkey?')) ?>">
+                            <?= __d('passkeys', 'Delete') ?>
+                        </button>
                     </td>
                 </tr>
             <?php } ?>

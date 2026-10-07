@@ -6,6 +6,7 @@ namespace CakePasskeys\View\Cell;
 
 use Cake\Core\Configure;
 use Cake\View\Cell;
+use CakePasskeys\Service\IdentityResolver;
 use function Cake\I18n\__d;
 
 class ManagerCell extends Cell
@@ -25,16 +26,7 @@ class ManagerCell extends Cell
 
             return;
         }
-        $identity = $this->request->getAttribute('identity');
-        $userId = null;
-        if (is_object($identity)) {
-            if (method_exists($identity, 'getIdentifier')) {
-                $userId = $identity->getIdentifier();
-            } elseif (isset($identity->id)) {
-                /** @var mixed $userId */
-                $userId = $identity->id;
-            }
-        }
+        $userId = (new IdentityResolver())->userId($this->request);
         if ($userId === null) {
             $this->set('hidden', true);
 
@@ -48,8 +40,6 @@ class ManagerCell extends Cell
             ->orderBy(['created' => 'DESC'])
             ->all()
             ->toArray();
-
-        $this->viewBuilder()->setHelpers(['Form']);
 
         $maxPerUser = (int)Configure::read('CakePasskeys.maxPerUser', 5);
         $this->set([

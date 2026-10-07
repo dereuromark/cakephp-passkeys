@@ -55,10 +55,20 @@ Refresh source:
 For plugin releases, open a PR with the regenerated JSON so device
 labels stay current.
 
+## The committed bundle
+
+`webroot/js/passkeys.min.js` is committed, so a composer install has it.
+After a change under `js/src/`:
+
+```bash
+npm run build && npm run vendor:webroot
+git add webroot/js
+```
+
+CI fails when the committed bundle does not match the sources.
+
 ## Release checklist
 
-1. `npm run build && npm run vendor:webroot` — produces `webroot/dist/passkeys.min.js`.
-2. `git add webroot/dist/ && git commit -m "build: vendor dist for vX.Y.Z"`.
-3. Update CHANGELOG.md's `Unreleased` heading to `[X.Y.Z] - YYYY-MM-DD`.
-4. `git tag vX.Y.Z && git push --tags`.
-5. CI publishes to npm. Packagist webhook auto-picks up the tag.
+1. Move the `Unreleased` section of CHANGELOG.md to `[X.Y.Z] - YYYY-MM-DD`.
+2. Tag `X.Y.Z` (no `v` prefix) and publish the GitHub release.
+3. The release workflow publishes the npm package. Packagist picks up the tag.

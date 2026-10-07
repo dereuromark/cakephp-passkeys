@@ -6,14 +6,18 @@ use function Cake\I18n\__d;
 /**
  * @var \Cake\View\View $this
  * @var bool $hidden
+ * @var int $redisplayAfterDays
  */
 if ($hidden) {
     return;
 }
 ?>
-<div class="passkeys-nudge alert alert-info" data-passkey-nudge>
+<div class="passkeys-nudge alert alert-info"
+     data-passkey-nudge
+     data-passkey-nudge-days="<?= (int)$redisplayAfterDays ?>"
+     hidden>
     <strong><?= __d('passkeys', 'Sign in faster next time') ?></strong>
-    <p><?= __d('passkeys', 'Add a passkey to skip the password and 2FA prompt on this device.') ?></p>
+    <p><?= __d('passkeys', 'Add a passkey to sign in on this device without your password.') ?></p>
     <button type="button" class="btn btn-primary btn-sm"
             data-passkey-register data-passkey-name-prompt>
         <?= __d('passkeys', 'Add a passkey') ?>
