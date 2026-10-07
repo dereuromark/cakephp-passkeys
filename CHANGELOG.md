@@ -25,6 +25,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `$this->Passkeys->script()` helper property, the `passkeys` table name,
   and asset filenames.
 
+### Fixed
+
+- PostgreSQL: passkeys can be stored and looked up. The binary columns
+  were bound as text, which PostgreSQL rejects for `bytea`.
+
 ## [0.1.0] - 2026-05-13
 
 ### Fixed

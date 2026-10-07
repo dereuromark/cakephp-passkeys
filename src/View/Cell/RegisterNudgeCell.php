@@ -8,9 +8,6 @@ use Cake\View\Cell;
 use CakePasskeys\Service\NudgePolicy;
 use DateTimeImmutable;
 
-/**
- * @extends \Cake\View\Cell<\Cake\View\View>
- */
 class RegisterNudgeCell extends Cell
 {
     /**
