@@ -6,16 +6,21 @@ namespace CakePasskeys\Test\TestCase\Service;
 
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
+use Cake\Database\Connection;
+use Cake\Datasource\ConnectionManager;
 use Cake\ORM\Entity;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\Contract\PasskeyUserInterface;
+use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
 use CakePasskeys\Service\ChallengeStore;
 use CakePasskeys\Service\ConventionUserAdapter;
 use CakePasskeys\Service\UserResolver;
 use CakePasskeys\Service\WebAuthnException;
 use CakePasskeys\Service\WebAuthnService;
+use CakePasskeys\Test\SoftAuthenticator;
 use Migrations\Migrations;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class WebAuthnServiceTest extends TestCase
 {
@@ -43,9 +48,24 @@ class WebAuthnServiceTest extends TestCase
         ]);
         Configure::write('CakePasskeys.tenancy.column', null);
 
+        Configure::write('CakePasskeys.users', [
+            'table' => 'Users',
+            'columns' => ['id' => 'id', 'email' => 'email', 'displayName' => 'name'],
+            'activeColumn' => null,
+        ]);
+        $connection = $this->connection();
+        $connection->execute('DROP TABLE IF EXISTS users');
+        $connection->execute(
+            'CREATE TABLE users (id INTEGER PRIMARY KEY, email VARCHAR(255), name VARCHAR(255), is_active INTEGER DEFAULT 1)',
+        );
+        foreach ([1, 2] as $id) {
+            $connection->insert('users', ['id' => $id, 'email' => "user{$id}@example.com", 'name' => "User{$id}", 'is_active' => 1]);
+        }
+
         $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
+        $this->getTableLocator()->clear();
 
         $this->service = new WebAuthnService(
             new ChallengeStore(),
@@ -88,19 +108,218 @@ class WebAuthnServiceTest extends TestCase
         );
     }
 
-    public function testFinishRegistrationHappyPathPersistsPasskey(): void
+    public function testRegistrationPersistsPasskey(): void
     {
-        $this->markTestIncomplete('Pending fixture round-trip helper (real authenticator response capture)');
+        $authenticator = new SoftAuthenticator();
+
+        $passkey = $this->register($this->makeUser(1), $authenticator);
+
+        $this->assertSame(1, $passkey->user_id);
+        $this->assertSame($authenticator->credentialId(), $passkey->credential_id);
+        $this->assertSame('Laptop', $passkey->name);
+        $this->assertSame('internal', $passkey->transports);
+    }
+
+    /**
+     * A discoverable credential returns the user handle it was registered
+     * with; one that is not discoverable returns none. Both have to log in.
+     *
+     * @param bool $withUserHandle
+     *
+     * @return void
+     */
+    #[DataProvider('userHandleModes')]
+    public function testLoginSucceeds(bool $withUserHandle): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+
+        $options = $this->service->startLogin();
+        $passkey = $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options, $withUserHandle),
+        ]);
+
+        $this->assertSame(1, $passkey->user_id);
+        $this->assertNotNull($passkey->last_used_at);
+    }
+
+    /**
+     * @return array<string, array<bool>>
+     */
+    public static function userHandleModes(): array
+    {
+        return ['discoverable credential' => [true], 'credential without user handle' => [false]];
+    }
+
+    public function testReauthSucceeds(): void
+    {
+        $user = $this->makeUser(1);
+        $authenticator = new SoftAuthenticator();
+        $this->register($user, $authenticator);
+
+        $options = $this->service->startReauth($user);
+
+        $this->assertTrue($this->service->finishReauth($user, [
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]));
+    }
+
+    public function testLoginRejectsPasskeyOfAnotherUserOnReauth(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        $other = $this->makeUser(2);
+
+        $options = $this->service->startReauth($other);
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->finishReauth($other, [
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+    }
+
+    /**
+     * A passkey outlives its account. Once the user is deactivated or gone,
+     * the credential must stop working.
+     *
+     * @param string $sql Statement that takes the account away
+     *
+     * @return void
+     */
+    #[DataProvider('removedAccounts')]
+    public function testLoginRejectsIneligibleUser(string $sql): void
+    {
+        Configure::write('CakePasskeys.users.activeColumn', 'is_active');
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        $this->connection()->execute($sql);
+
+        $options = $this->service->startLogin();
+
+        $this->expectException(WebAuthnException::class);
+        $this->expectExceptionMessage('Unknown passkey credential.');
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+    }
+
+    /**
+     * @return array<string, array<string>>
+     */
+    public static function removedAccounts(): array
+    {
+        return [
+            'deactivated' => ['UPDATE users SET is_active = 0 WHERE id = 1'],
+            'deleted' => ['DELETE FROM users WHERE id = 1'],
+        ];
+    }
+
+    public function testLoginRejectsAssertionFromAnotherOrigin(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        $phishing = new SoftAuthenticator(origin: 'https://evil.example');
+
+        $options = $this->service->startLogin();
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => ['rawId' => $authenticator->authenticate($options)['rawId']] + $phishing->authenticate($options),
+        ]);
+    }
+
+    /**
+     * Malformed input and failed library checks are client errors, reported
+     * with the plugin's own exception type.
+     *
+     * @return void
+     */
+    public function testLoginReportsMalformedResponseAsWebAuthnException(): void
+    {
+        $options = $this->service->startLogin();
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => ['id' => '!!', 'rawId' => '!!', 'type' => 'public-key', 'response' => ['clientDataJSON' => '!!']],
+        ]);
+    }
+
+    public function testChallengeIsSingleUse(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        $options = $this->service->startLogin();
+        $response = ['challengeKey' => $options['challengeKey'], 'response' => $authenticator->authenticate($options)];
+        $this->service->finishLogin($response);
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->finishLogin($response);
     }
 
     public function testMaxPerUserEnforced(): void
     {
-        $this->markTestIncomplete('Pending fixture round-trip helper');
+        Configure::write('CakePasskeys.maxPerUser', 1);
+        $user = $this->makeUser(1);
+        $this->register($user, new SoftAuthenticator());
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->startRegistration($user);
     }
 
     public function testCounterRollbackRejected(): void
     {
-        $this->markTestIncomplete('Pending fixture round-trip helper');
+        $authenticator = new SoftAuthenticator(counter: 5);
+        $this->register($this->makeUser(1), $authenticator);
+        $authenticator->counter = 6;
+        $options = $this->service->startLogin();
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+
+        // A cloned authenticator replays an older counter.
+        $authenticator->counter = 6;
+        $options = $this->service->startLogin();
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+    }
+
+    /**
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Test\SoftAuthenticator $authenticator
+     *
+     * @return \CakePasskeys\Model\Entity\Passkey
+     */
+    private function register(PasskeyUserInterface $user, SoftAuthenticator $authenticator): Passkey
+    {
+        $options = $this->service->startRegistration($user);
+
+        return $this->service->finishRegistration(
+            $user,
+            ['challengeKey' => $options['challengeKey'], 'response' => $authenticator->register($options)],
+            'Laptop',
+        );
+    }
+
+    /**
+     * @return \Cake\Database\Connection
+     */
+    private function connection(): Connection
+    {
+        $connection = ConnectionManager::get('test');
+        assert($connection instanceof Connection);
+
+        return $connection;
     }
 
     /**
