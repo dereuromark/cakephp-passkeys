@@ -52,7 +52,7 @@ class SoftAuthenticator
      */
     public function __construct(
         private string $rpId = 'localhost',
-        private string $origin = 'https://localhost',
+        public string $origin = 'https://localhost',
         public int $counter = 0,
     ) {
         $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);

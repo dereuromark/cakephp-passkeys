@@ -218,19 +218,29 @@ class WebAuthnServiceTest extends TestCase
         ];
     }
 
+    /**
+     * Same credential and a valid signature, reported from another site: what
+     * a phishing page relaying the ceremony would produce.
+     *
+     * @return void
+     */
     public function testLoginRejectsAssertionFromAnotherOrigin(): void
     {
         $authenticator = new SoftAuthenticator();
         $this->register($this->makeUser(1), $authenticator);
-        $phishing = new SoftAuthenticator(origin: 'https://evil.example');
+        $authenticator->origin = 'https://evil.example';
 
         $options = $this->service->startLogin();
 
-        $this->expectException(WebAuthnException::class);
-        $this->service->finishLogin([
-            'challengeKey' => $options['challengeKey'],
-            'response' => ['rawId' => $authenticator->authenticate($options)['rawId']] + $phishing->authenticate($options),
-        ]);
+        try {
+            $this->service->finishLogin([
+                'challengeKey' => $options['challengeKey'],
+                'response' => $authenticator->authenticate($options),
+            ]);
+            $this->fail('An assertion from another origin was accepted.');
+        } catch (WebAuthnException $e) {
+            $this->assertStringContainsString('rpId mismatch', (string)$e->getPrevious()?->getMessage());
+        }
     }
 
     /**
