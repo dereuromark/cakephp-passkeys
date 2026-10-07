@@ -2,9 +2,12 @@
 
 [![CI](https://github.com/dereuromark/cakephp-passkeys/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/dereuromark/cakephp-passkeys/actions/workflows/ci.yml?query=branch%3Amain)
 [![JS](https://github.com/dereuromark/cakephp-passkeys/actions/workflows/js.yml/badge.svg?branch=main)](https://github.com/dereuromark/cakephp-passkeys/actions/workflows/js.yml?query=branch%3Amain)
+[![E2E](https://github.com/dereuromark/cakephp-passkeys/actions/workflows/e2e.yml/badge.svg?branch=main)](https://github.com/dereuromark/cakephp-passkeys/actions/workflows/e2e.yml?query=branch%3Amain)
+[![PHPStan](https://img.shields.io/badge/PHPStan-level%208-brightgreen.svg?style=flat)](https://phpstan.org/)
 [![Latest Stable Version](https://poser.pugx.org/dereuromark/cakephp-passkeys/v/stable.svg)](https://packagist.org/packages/dereuromark/cakephp-passkeys)
 [![Minimum PHP Version](https://img.shields.io/badge/php-%3E%3D%208.2-8892BF.svg)](https://php.net/)
 [![License](https://poser.pugx.org/dereuromark/cakephp-passkeys/license.svg)](LICENSE)
+[![Total Downloads](https://poser.pugx.org/dereuromark/cakephp-passkeys/d/total.svg)](https://packagist.org/packages/dereuromark/cakephp-passkeys)
 [![Coding Standards](https://img.shields.io/badge/cs-PhpCollective-blue.svg?style=flat-square)](https://github.com/php-collective/code-sniffer)
 
 Passkey (WebAuthn) sign-in for CakePHP 5.
