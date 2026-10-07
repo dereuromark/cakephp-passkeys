@@ -32,14 +32,10 @@ interface PasskeyUserInterface
     public function isPasskeyEligible(): bool;
 
     /**
-     * The host user's primary key.
+     * The primary key of the user row, as stored in `passkeys.user_id`.
+     * An integer or a string such as a UUID.
      *
-     * v0.1 limitation: integer primary keys only. UUID / string IDs are not
-     * supported yet — the migration stores `user_id` as INTEGER and several
-     * controller paths cast through `(int)` already; widening the contract
-     * is a v2 enhancement.
-     *
-     * @return int
+     * @return string|int
      */
-    public function getUserId(): int;
+    public function getUserId(): string|int;
 }

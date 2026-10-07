@@ -9,6 +9,7 @@ use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
 use Cake\Event\EventManager;
+use Cake\Http\Exception\BadRequestException;
 use Cake\Http\ServerRequest;
 use Cake\Http\Session;
 use Cake\TestSuite\IntegrationTestTrait;
@@ -43,7 +44,8 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.maxPerUser', 5);
         Configure::write('CakePasskeys.challengeTtl', 300);
         Configure::write('CakePasskeys.cache', 'default');
-        Configure::write('CakePasskeys.tenancy.column', null);
+        Configure::write('CakePasskeys.login.emailHint', false);
+        Configure::write('CakePasskeys.identityResolver', null);
         // Reset the session-key override — one test overrides this to a
         // non-default path, others rely on the default `Auth.id`.
         Configure::write('CakePasskeys.session.userIdKey', 'Auth.id');
@@ -262,6 +264,7 @@ class PasskeysControllerTest extends TestCase
      */
     public function testLoginStartReadsEmailHintFromBody(): void
     {
+        Configure::write('CakePasskeys.login.emailHint', true);
         $service = $this->createMock(WebAuthnService::class);
         $service->expects($this->once())
             ->method('startLogin')
@@ -297,6 +300,7 @@ class PasskeysControllerTest extends TestCase
      */
     public function testLoginStartBodyHintWinsOverQuery(): void
     {
+        Configure::write('CakePasskeys.login.emailHint', true);
         $service = $this->createMock(WebAuthnService::class);
         $service->expects($this->once())
             ->method('startLogin')
@@ -357,6 +361,17 @@ class PasskeysControllerTest extends TestCase
             public function __construct()
             {
                 // Skip parent constructor — we only care about call ordering.
+            }
+
+            /**
+             * @param string|null $name
+             * @param mixed $default
+             *
+             * @return mixed
+             */
+            public function read(?string $name = null, mixed $default = null): mixed
+            {
+                return $name === 'CakePasskeys.login_challenges' ? ['x'] : $default;
             }
 
             /**
@@ -452,6 +467,17 @@ class PasskeysControllerTest extends TestCase
             }
 
             /**
+             * @param string|null $name
+             * @param mixed $default
+             *
+             * @return mixed
+             */
+            public function read(?string $name = null, mixed $default = null): mixed
+            {
+                return $name === 'CakePasskeys.login_challenges' ? ['x'] : $default;
+            }
+
+            /**
              * @return void
              */
             public function renew(): void
@@ -516,6 +542,152 @@ class PasskeysControllerTest extends TestCase
         $id = $this->seedPasskey(1, 'Old');
         $this->post("/passkeys/rename/{$id}", ['name' => '   ']);
         $this->assertResponseCode(400);
+    }
+
+    /**
+     * Narrowing a login to one account tells an anonymous caller whether
+     * that account has passkeys, so the hint is ignored unless enabled.
+     *
+     * @return void
+     */
+    public function testLoginStartIgnoresEmailHintByDefault(): void
+    {
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->once())
+            ->method('startLogin')
+            ->with(null)
+            ->willReturn(['challenge' => 'x', 'challengeKey' => 'k']);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['emailHint' => 'alice@example.com']);
+
+        $this->controllerWith($request, $service)->loginStart();
+    }
+
+    /**
+     * A challenge answered elsewhere must not sign this browser in: that is
+     * how a login is forced onto somebody else's session.
+     *
+     * @return void
+     */
+    public function testLoginFinishRejectsChallengeFromAnotherSession(): void
+    {
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->never())->method('finishLogin');
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'started-by-someone-else']);
+
+        $this->expectException(BadRequestException::class);
+        $this->controllerWith($request, $service)->loginFinish();
+    }
+
+    public function testLoginStartRemembersChallengeInSession(): void
+    {
+        $service = $this->createMock(WebAuthnService::class);
+        $service->method('startLogin')->willReturn(['challenge' => 'x', 'challengeKey' => 'k1']);
+        $request = new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]);
+
+        $this->controllerWith($request, $service)->loginStart();
+
+        $this->assertSame(['k1'], $request->getSession()->read('CakePasskeys.login_challenges'));
+    }
+
+    /**
+     * Without required user verification a login proves possession only, so
+     * it must not count as a second factor.
+     *
+     * @return void
+     */
+    public function testLoginFinishSetsMfaFlagOnlyWithRequiredUserVerification(): void
+    {
+        Configure::write('CakePasskeys.ceremony.userVerification', 'preferred');
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createMock(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $response = $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertFalse(json_decode((string)$response->getBody(), true)['mfaSatisfied']);
+        $this->assertNull($request->getSession()->read('CakePasskeys.mfa_satisfied'));
+        $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * @param string $action
+     *
+     * @return void
+     */
+    #[DataProvider('invalidReauthActions')]
+    public function testReauthFinishRejectsInvalidActionName(string $action): void
+    {
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->never())->method('finishReauth');
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k', 'action' => $action]);
+        $request->getSession()->write('Auth.id', 1);
+
+        $this->expectException(BadRequestException::class);
+        $this->controllerWith($request, $service)->reauthFinish();
+    }
+
+    /**
+     * @return array<string, array<string>>
+     */
+    public static function invalidReauthActions(): array
+    {
+        return [
+            'session path' => ['a.b'],
+            'spaces' => ['change email'],
+            'too long' => [str_repeat('a', 65)],
+        ];
+    }
+
+    public function testIdentityResolverClosureDecidesTheUser(): void
+    {
+        Configure::write('CakePasskeys.identityResolver', fn (ServerRequest $request): int => 2);
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->once())
+            ->method('startRegistration')
+            ->with($this->callback(fn ($user): bool => $user->getUserId() === 2))
+            ->willReturn(['challenge' => 'x', 'challengeKey' => 'k']);
+
+        $request = new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]);
+
+        $this->controllerWith($request, $service)->registerStart();
+    }
+
+    /**
+     * @param \Cake\Http\ServerRequest $request
+     * @param \CakePasskeys\Service\WebAuthnService $service
+     *
+     * @return \CakePasskeys\Controller\PasskeysController
+     */
+    private function controllerWith(ServerRequest $request, WebAuthnService $service): PasskeysController
+    {
+        return new class ($request, $service) extends PasskeysController {
+            public function __construct(
+                ServerRequest $request,
+                private WebAuthnService $stub,
+            ) {
+                parent::__construct($request);
+            }
+
+            protected function webauthn(): WebAuthnService
+            {
+                return $this->stub;
+            }
+        };
     }
 
     /**

@@ -59,7 +59,7 @@ class PasskeysTable extends Table
     public function validationDefault(Validator $validator): Validator
     {
         return $validator
-            ->integer('user_id')->requirePresence('user_id', 'create')->notEmptyString('user_id')
+            ->scalar('user_id')->requirePresence('user_id', 'create')->notEmptyString('user_id')
             ->scalar('name')->maxLength('name', 80)->requirePresence('name', 'create')->notEmptyString('name')
             ->scalar('emoji')->maxLength('emoji', 8)->allowEmptyString('emoji')
             ->scalar('aaguid_label')->maxLength('aaguid_label', 60)->allowEmptyString('aaguid_label');

@@ -23,6 +23,7 @@ class PasskeysHelperTest extends TestCase
     {
         parent::setUp();
         Configure::write('CakePasskeys.enabled', true);
+        Configure::write('App.jsBaseUrl', 'js/');
         // Reset the URL prefix to the default — one test toggles it to
         // /auth/passkeys to prove the helper honors the override.
         Configure::write('CakePasskeys.urlPrefix', '/passkeys');
@@ -46,19 +47,13 @@ class PasskeysHelperTest extends TestCase
     }
 
     /**
-     * The asset URL must inherit `CakePasskeys.urlPrefix`. A host that mounts
-     * the plugin under `/auth/passkeys` (e.g. for tidy SSO-style namespacing)
-     * would otherwise 404 on the bundled JS because the helper hard-coded
-     * `/passkeys/dist/...`.
+     * The bundle is a plugin asset, served from the plugin's webroot.
      *
      * @return void
      */
-    public function testScriptHonorsCustomUrlPrefix(): void
+    public function testScriptPointsAtThePluginAsset(): void
     {
-        Configure::write('CakePasskeys.urlPrefix', '/auth/passkeys');
-        $html = $this->helper->script();
-        $this->assertStringContainsString('/auth/passkeys/dist/passkeys.min.js', $html);
-        $this->assertStringNotContainsString('"/passkeys/dist/', $html);
+        $this->assertStringContainsString('/cake_passkeys/js/passkeys.min.js', $this->helper->script());
     }
 
     /**
@@ -93,10 +88,33 @@ class PasskeysHelperTest extends TestCase
     /**
      * @return void
      */
-    public function testReauthGuardEmitsForm(): void
+    public function testReauthAttributesNameTheAction(): void
     {
-        $html = $this->helper->reauthGuard('delete-account');
-        $this->assertStringContainsString('data-passkey-reauth-required="delete-account"', $html);
+        $this->assertSame(
+            ['data-passkey-reauth-required' => 'delete-account'],
+            $this->helper->reauthAttributes('delete-account'),
+        );
+    }
+
+    /**
+     * The JavaScript sends this token, so the endpoints work with the
+     * application's CSRF protection left on.
+     *
+     * @return void
+     */
+    public function testEndpointsMetaCarriesCsrfTokenAndManagementUrls(): void
+    {
+        $request = (new ServerRequest())->withAttribute('csrfToken', 'tok<en');
+        $helper = new PasskeysHelper(new View($request));
+
+        $html = $helper->endpointsMeta();
+
+        $this->assertSame(1, preg_match('/content="([^"]*)"/', $html, $match));
+        $config = json_decode(html_entity_decode($match[1] ?? ''), true);
+        $this->assertSame('tok<en', $config['csrfToken']);
+        $this->assertSame('/passkeys/rename/__id__', $config['rename']);
+        $this->assertSame('/passkeys/delete/__id__', $config['delete']);
+        $this->assertStringNotContainsString('tok<en', $html);
     }
 
     /**

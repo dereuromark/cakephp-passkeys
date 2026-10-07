@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace CakePasskeys\View\Cell;
 
+use Cake\Core\Configure;
 use Cake\View\Cell;
+use CakePasskeys\Service\IdentityResolver;
 use CakePasskeys\Service\NudgePolicy;
-use DateTimeImmutable;
 
+/**
+ * Banner that suggests adding a passkey to a signed-in user who has none.
+ * Dismissal is remembered in the browser by the bundled JavaScript.
+ */
 class RegisterNudgeCell extends Cell
 {
     /**
@@ -15,21 +20,7 @@ class RegisterNudgeCell extends Cell
      */
     public function display(): void
     {
-        $identity = $this->request->getAttribute('identity');
-        if (!$identity) {
-            $this->set('hidden', true);
-
-            return;
-        }
-        $userId = null;
-        if (is_object($identity)) {
-            if (method_exists($identity, 'getIdentifier')) {
-                $userId = $identity->getIdentifier();
-            } elseif (isset($identity->id)) {
-                /** @var mixed $userId */
-                $userId = $identity->id;
-            }
-        }
+        $userId = (new IdentityResolver())->userId($this->request);
         if ($userId === null) {
             $this->set('hidden', true);
 
@@ -42,14 +33,9 @@ class RegisterNudgeCell extends Cell
             ->where(['user_id' => $userId])
             ->count();
 
-        $session = $this->request->getSession();
-        $loginCount = (int)$session->read('CakePasskeys.loginCount', 0);
-        $dismissedAtStr = $session->read('CakePasskeys.nudgeDismissedAt');
-        $dismissedAt = $dismissedAtStr !== null
-            ? new DateTimeImmutable((string)$dismissedAtStr)
-            : null;
-
-        $show = (new NudgePolicy())->shouldShow($passkeyCount, $loginCount, $dismissedAt);
-        $this->set('hidden', !$show);
+        $this->set([
+            'hidden' => !(new NudgePolicy())->shouldShow($passkeyCount),
+            'redisplayAfterDays' => (int)Configure::read('CakePasskeys.nudge.redisplayAfterDays', 14),
+        ]);
     }
 }

@@ -35,19 +35,14 @@ use Webauthn\TrustPath\EmptyTrustPath;
 /**
  * WebAuthn ceremony service, backed by web-auth/webauthn-lib (Spomky-Labs).
  *
- * Ported from RentCraft's `App\Service\Auth\WebAuthnService`. Abstractions
- * applied during the port:
+ * Collaborators:
  *
- *  - User identity moved behind {@see PasskeyUserInterface} (no concrete
- *    User entity coupling).
- *  - Challenge persistence moved behind {@see ChallengeStore} (opaque-key
- *    nonce store) instead of inline `Cache::write/read` calls.
- *  - User lookup during login moved behind {@see UserResolver}.
- *  - AAGUID → vendor-label resolution moved behind {@see AaguidLabelResolver};
- *    the resolved label is persisted on the row at registration time.
- *  - Configure keys moved under the `CakePasskeys.*` namespace.
- *  - All failures raise {@see WebAuthnException} (single subclass of
- *    `\RuntimeException`).
+ *  - {@see PasskeyUserInterface} is all it knows about a user.
+ *  - {@see ChallengeStore} keeps challenges between the two steps.
+ *  - {@see UserResolver} finds users for login.
+ *  - {@see AaguidLabelResolver} names the authenticator model at registration.
+ *
+ * All failures raise {@see WebAuthnException}.
  *
  * Surface:
  *  - startRegistration / finishRegistration
@@ -104,6 +99,15 @@ class WebAuthnService
 
         $factory = new CeremonyStepManagerFactory();
         $factory->setAttestationStatementSupportManager($attestationSupportManager);
+        // Browsers treat http://localhost as a secure context, so development
+        // works without TLS. Every other origin has to be https.
+        $factory->setSecuredRelyingPartyId(['localhost']);
+        // Without a list, the library accepts any https origin whose host is
+        // the RP ID or a subdomain of it, on any port.
+        $allowedOrigins = array_values(array_filter((array)Configure::read('CakePasskeys.allowedOrigins')));
+        if ($allowedOrigins) {
+            $factory->setAllowedOrigins($allowedOrigins);
+        }
 
         $this->attestationValidator = AuthenticatorAttestationResponseValidator::create($factory->creationCeremony());
         $this->assertionValidator = AuthenticatorAssertionResponseValidator::create($factory->requestCeremony());

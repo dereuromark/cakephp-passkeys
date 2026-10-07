@@ -16,3 +16,8 @@ jobs:
             - run: npm run typecheck
             - run: npm test
             - run: npm run build
+            - name: Check that the committed bundle is current
+              if: matrix.node == '22'
+              run: |
+                  npm run vendor:webroot
+                  git diff --exit-code -- webroot/js

@@ -13,13 +13,11 @@ class CreatePasskeysTest extends TestCase
 {
     protected function tearDown(): void
     {
-        Configure::write('CakePasskeys.tenancy.column', null);
         parent::tearDown();
     }
 
     public function testMigrationCreatesPasskeysTable(): void
     {
-        Configure::write('CakePasskeys.tenancy.column', null);
         $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
@@ -38,19 +36,27 @@ class CreatePasskeysTest extends TestCase
         $this->assertContains('name', $cols);
         $this->assertContains('sign_count', $cols);
         $this->assertContains('last_used_at', $cols);
-        $this->assertNotContains('account_id', $cols, 'tenancy column off by default');
     }
 
-    public function testMigrationCreatesTenancyColumnWhenConfigured(): void
+    /**
+     * An application with UUID primary keys sets the type before migrating.
+     *
+     * @return void
+     */
+    public function testUserIdTypeFollowsConfig(): void
     {
-        Configure::write('CakePasskeys.tenancy.column', 'account_id');
-        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
-        $migrations->rollback(['target' => 0]);
-        $migrations->migrate();
+        Configure::write('CakePasskeys.users.idType', 'uuid');
+        try {
+            $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
+            $migrations->rollback(['target' => 0]);
+            $migrations->migrate();
+        } finally {
+            Configure::write('CakePasskeys.users.idType', 'integer');
+        }
 
         /** @var \Cake\Database\Connection $connection */
         $connection = ConnectionManager::get('test');
         $schema = $connection->getSchemaCollection()->describe('passkeys');
-        $this->assertContains('account_id', $schema->columns());
+        $this->assertSame('uuid', $schema->getColumnType('user_id'));
     }
 }

@@ -3,8 +3,9 @@
 Two distribution paths share the same browser code:
 
 1. **Zero-build path.** `<?= $this->Passkeys->script() ?>` emits a
-   `<script>` tag pointing at the IIFE bundle the plugin ships in
-   `webroot/dist/passkeys.min.js`. Auto-binds on `DOMContentLoaded`.
+   `<script>` tag for the bundle the plugin ships in
+   `webroot/js/passkeys.min.js`, served as a plugin asset. It binds the
+   attributes when the page has loaded.
 2. **npm path.** `npm install @dereuromark/cakephp-passkeys` for tree-
    shakable imports and framework adapters.
 
@@ -28,11 +29,23 @@ Drop the script tag once per page that uses passkeys, then sprinkle
        autocomplete="username webauthn"
        data-passkey-conditional>
 
-<!-- Sensitive-action confirmation -->
-<form data-passkey-reauth-required="delete-account" method="post" action="/account/delete">
+<!-- Confirmation before a sensitive action -->
+<?= $this->Form->create(null, $this->Passkeys->reauthAttributes('delete-account')) ?>
     <button>Delete account</button>
-</form>
+<?= $this->Form->end() ?>
+
+<!-- A row in a passkey list -->
+<tr data-passkey-row data-passkey-id="7">
+    <td><span data-passkey-name>Laptop</span></td>
+    <td>
+        <button data-passkey-rename data-passkey-prompt="New name">Rename</button>
+        <button data-passkey-delete data-passkey-confirm="Delete this passkey?">Delete</button>
+    </td>
+</tr>
 ```
+
+`endpointsMeta()` carries the endpoint URLs and the CSRF token of your
+application. The binder does nothing on a page without it.
 
 The binder picks up these attributes once per element (idempotent —
 re-running `bind()` is safe).
@@ -41,7 +54,7 @@ re-running `bind()` is safe).
 
 ```js
 // Core ceremony helpers
-import { register, authenticate, conditional, reauth } from '@dereuromark/cakephp-passkeys';
+import { register, authenticate, conditional, reauth, rename, remove } from '@dereuromark/cakephp-passkeys';
 
 // Data-attribute binder (manual call if you build your own bundle)
 import { bind } from '@dereuromark/cakephp-passkeys/attributes';

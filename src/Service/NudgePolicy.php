@@ -5,30 +5,21 @@ declare(strict_types=1);
 namespace CakePasskeys\Service;
 
 use Cake\Core\Configure;
-use DateTimeImmutable;
-use DateTimeInterface;
 
+/**
+ * Decides whether a user should be offered to add a passkey.
+ */
 class NudgePolicy
 {
-    public function shouldShow(int $passkeyCount, int $loginCount, ?DateTimeInterface $dismissedAt): bool
+    /**
+     * @param int $passkeyCount Passkeys the user already has
+     *
+     * @return bool
+     */
+    public function shouldShow(int $passkeyCount): bool
     {
-        if (!Configure::read('CakePasskeys.nudge.enabled')) {
-            return false;
-        }
-        if ($passkeyCount > 0) {
-            return false;
-        }
-        if ($loginCount < (int)Configure::read('CakePasskeys.nudge.afterLogins', 3)) {
-            return false;
-        }
-        if ($dismissedAt) {
-            $window = (int)Configure::read('CakePasskeys.nudge.redisplayAfterDays', 14);
-            $cutoff = new DateTimeImmutable("-{$window} days");
-            if ($dismissedAt > $cutoff) {
-                return false;
-            }
-        }
-
-        return true;
+        return (bool)Configure::read('CakePasskeys.enabled')
+            && (bool)Configure::read('CakePasskeys.nudge.enabled')
+            && $passkeyCount === 0;
     }
 }

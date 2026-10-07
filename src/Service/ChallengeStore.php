@@ -29,6 +29,12 @@ class ChallengeStore
         if ($payload === null) {
             return null;
         }
+        // add() only writes when the key is new, which makes it the gate for
+        // two finishes racing on the same challenge. Read-then-delete alone
+        // would let both through.
+        if (!Cache::add($cacheKey . '.used', true, $this->engine())) {
+            return null;
+        }
         Cache::delete($cacheKey, $this->engine());
 
         /** @var array<string, mixed> $payload */

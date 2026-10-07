@@ -10,13 +10,20 @@
 [![Total Downloads](https://poser.pugx.org/dereuromark/cakephp-passkeys/d/total.svg)](https://packagist.org/packages/dereuromark/cakephp-passkeys)
 [![Coding Standards](https://img.shields.io/badge/cs-PhpCollective-blue.svg?style=flat-square)](https://github.com/php-collective/code-sniffer)
 
-A public-quality passkey/WebAuthn plugin for CakePHP 5. It ships a PHP plugin
-and a companion npm package in lockstep, with a vanilla-JS core plus
-React, Vue, Alpine, and Stimulus adapters. Drop-in `data-attribute` binding
-works for zero-build users; tree-shakable imports work for framework users.
-Both passwordless and 2FA modes are supported.
+Passkey (WebAuthn) sign-in for CakePHP 5.
 
-## Quick start
+- Register, sign in and re-confirm with a passkey. Eight JSON endpoints, backed by `web-auth/webauthn-lib`.
+- A JavaScript bundle that binds `data-passkey-*` attributes. No build step needed. The same code is on npm with React, Vue, Alpine and Stimulus adapters.
+- Cells for a passkey list, a sign-in button and an "add a passkey" banner.
+- No assumptions about your authentication stack: you tell the plugin who the current user is, and it tells you who signed in.
+
+## Requirements
+
+- PHP 8.2+, CakePHP 5.2+
+- HTTPS in production. Browsers only offer WebAuthn in a secure context; `http://localhost` counts as one for development.
+- A cache engine that keeps data between two requests (not `Null` or `Array`) for the challenges.
+
+## Installation
 
 ```bash
 composer require dereuromark/cakephp-passkeys
@@ -24,266 +31,202 @@ bin/cake plugin load CakePasskeys
 bin/cake migrations migrate -p CakePasskeys
 ```
 
-In your settings template:
-
-```php
-<?= $this->cell('CakePasskeys.Manager') ?>
-<?= $this->Passkeys->script() ?>
-```
-
-Visit `/settings`, see the empty state, click *Add a passkey*.
+If the primary key of your users table is not an integer, set `CakePasskeys.users.idType` before you run the migration. See [Configuration](#configuration).
 
 ## Configuration
 
-The canonical reference is [`config/app.example.php`](config/app.example.php).
-Copy the keys you need into your app's `config/app_local.php` or `config/passkeys.php`.
+At minimum, set the relying party id. It is the domain your users see, without scheme and port.
 
-Environment variables read at runtime:
+```php
+// config/app_local.php
+'CakePasskeys' => [
+    'rpId' => 'example.com',
+    'rpName' => 'Example App',
+    'allowedOrigins' => ['https://example.com'],
+],
+```
 
-| Variable | Purpose | Default |
+[`config/app.example.php`](config/app.example.php) lists every key with its default. The ones you are most likely to touch:
+
+| Key | Default | Purpose |
 | --- | --- | --- |
-| `PASSKEYS_ENABLED` | Master switch — disables all routes and cells when `false`. | `true` |
-| `WEBAUTHN_RP_ID` | Relying Party ID — your app's effective domain (no scheme, no port). | host of `App.fullBaseUrl` |
-| `WEBAUTHN_RP_NAME` | Human-readable name shown by the authenticator UI. | `App.name` |
-| `PASSKEYS_MAX_PER_USER` | Cap on credentials per user (UI hides *Add* once reached). | `10` |
-| `PASSKEYS_CHALLENGE_TTL` | Seconds a registration/login challenge stays valid in the session. | `300` |
+| `rpId` | `'localhost'` | Relying party id. A passkey is bound to it for good, so choose it before users enroll. |
+| `rpName` | `'My App'` | Name the authenticator shows. |
+| `allowedOrigins` | `null` | Origins a response may come from. Without a list, any HTTPS origin on the `rpId` or a subdomain of it is accepted, on any port. Set it in production. |
+| `users.table` | `'Users'` | Table your users live in. |
+| `users.columns` | `id`, `email`, `name` | Column names for the id, the email and the display name. |
+| `users.activeColumn` | `null` | Boolean column. Users where it is false cannot register or sign in. |
+| `users.idType` | `'integer'` | Type of `passkeys.user_id`: `integer`, `biginteger`, `uuid` or `string`. Read by the migration. |
+| `identityResolver` | `null` | Closure that returns the id of the signed-in user. See [Who is signed in](#who-is-signed-in). |
+| `session.userIdKey` | `'Auth.id'` | Session key the user id is written to after a passkey sign-in. |
+| `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |
+| `maxPerUser` | `5` | Passkeys per user. `0` for no limit. |
+| `login.emailHint` | `false` | Accept an email on `login/start`. See [Security](#security). |
+| `rateLimiter` | `null` | Class or instance implementing `RateLimiterInterface`. |
+| `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
 
-## The five host touchpoints
+## Usage
 
-These are the only points where your app needs to know the plugin exists.
+### 1. Load the script and the endpoint list
 
-### 1. `config/auth_acl.ini`
-
-Allow the user role on the eight authenticated actions, and anonymous on
-the two login endpoints:
-
-```ini
-[CakePasskeys.Passkeys]
-index = user
-register_start = user
-register_finish = user
-rename = user
-delete = user
-login_start = *
-login_finish = *
-reauth_start = user
-reauth_finish = user
-```
-
-### 2. `config/passkeys.php`
+In the `<head>` of the layout, or on the pages that show a passkey control:
 
 ```php
-return [
-    'CakePasskeys' => [
-        'enabled' => env('PASSKEYS_ENABLED', true),
-        'rp' => [
-            'id' => env('WEBAUTHN_RP_ID', 'example.com'),
-            'name' => env('WEBAUTHN_RP_NAME', 'Example App'),
-        ],
-        'maxPerUser' => (int)env('PASSKEYS_MAX_PER_USER', 10),
-        'challengeTtl' => (int)env('PASSKEYS_CHALLENGE_TTL', 300),
-        // Where the plugin hands the authenticated user id to your host
-        // on a successful passkey login. Match your auth middleware's
-        // session shape:
-        //   - cakephp/authentication (modern):  'Identity.id'
-        //   - legacy AuthComponent (default):   'Auth.id'
-        // The plugin also fires CakePasskeys.afterLogin — subscribe there
-        // to skip the session write entirely and build identity yourself.
-        'session' => ['userIdKey' => 'Auth.id'],
-    ],
-];
+<?= $this->Passkeys->endpointsMeta() ?>
+<?= $this->Passkeys->script() ?>
 ```
 
-`config/app.example.php` in the plugin lists every supported key with
-inline notes; copy from it rather than guessing.
-
-### 3. CSRF + FormProtection skip
-
-The WebAuthn challenge nonce is itself anti-replay; the eight JSON
-endpoints don't need CSRF tokens.
+Load the helper in your `AppView`:
 
 ```php
-$csrf->skipCheckCallback(fn ($r) => str_starts_with($r->getPath(), '/passkeys/'));
+$this->addHelper('CakePasskeys.Passkeys');
 ```
 
-Wire the same callback into `FormProtectionMiddleware` if you use it.
+`script()` serves the bundle as a plugin asset. If your web server serves plugin assets itself, run `bin/cake plugin assets symlink` once.
 
-### 4. Event subscription
-
-```php
-public function beforeFilter(\Cake\Event\EventInterface $event): void
-{
-    parent::beforeFilter($event);
-
-    $this->getEventManager()->on('CakePasskeys.afterLogin', function ($event) {
-        $passkeyEvent = $event->getData('event');
-        // write to your audit log / set identity / mark MFA satisfied / ...
-    });
-}
-```
-
-### 5. Demo / anonymous-route policy
-
-If you expose a public demo route, gate it behind `CakePasskeys.enabled` and
-unauthenticate the user before the WebAuthn ceremony — otherwise the
-demo credential gets bound to a real account.
-
-## Passwordless vs 2FA modes
-
-> [!IMPORTANT]
-> Pick one, document it in your own product docs, wire your auth
-> middleware to match. The plugin supports both equally; the wrong
-> default lands wrong defaults in production.
-
-- **Passwordless.** A passkey login is the full auth ceremony. The
-  session flag `CakePasskeys.mfa_satisfied = true` tells your MFA gate not
-  to prompt for a 2nd factor.
-- **2FA.** User logs in with email/password first, then a passkey acts
-  as the 2nd factor. The same session flag means "2nd factor satisfied
-  today; don't re-prompt."
-
-## UI surfaces
+### 2. Let signed-in users manage their passkeys
 
 ```php
 <?= $this->cell('CakePasskeys.Manager') ?>
 ```
 
-Settings list. Handles empty / populated / at-cap states. Rename and
-delete inline.
+Shows the user's passkeys with rename and delete, and an "Add a passkey" button until the limit is reached.
+
+### 3. Offer the sign-in
+
+On the login page:
 
 ```php
-<?= $this->cell('CakePasskeys.LoginButton') ?>
+<?= $this->Passkeys->loginButton() ?>
+
+<?= $this->Form->control('email', $this->Passkeys->autofillAttribute()) ?>
 ```
 
-Feature-detected *Sign in with a passkey* button. Stays hidden if the
-browser does not advertise WebAuthn.
+The button stays hidden in browsers without WebAuthn. `autofillAttribute()` lets the browser offer passkeys in the autofill dropdown of the input, without a click on the button.
+
+### 4. Pick up the signed-in user
+
+After a successful sign-in the plugin:
+
+1. renews the session id
+2. writes the user id to the session key in `session.userIdKey`
+3. dispatches `CakePasskeys.afterLogin`
+4. answers with `{"redirectTo": ..., "userId": ...}`, and the JavaScript navigates to `redirectTo`
+
+How that becomes "signed in" depends on your application:
+
+- With `cakephp/authentication` and its `Session` authenticator, set `session.userIdKey` to the key that authenticator reads, or build the identity in an `afterLogin` listener.
+- With your own session-based login, set `session.userIdKey` to the key your code checks.
+
+## Who is signed in
+
+Registering, renaming, deleting and re-confirming need the current user. The plugin looks in this order:
+
+1. `CakePasskeys.identityResolver`, if set:
+
+    ```php
+    'identityResolver' => fn (\Cake\Http\ServerRequest $request) => $request->getAttribute('authUser')?->id,
+    ```
+
+2. The `identity` request attribute, as set by `cakephp/authentication`. Objects with `getIdentifier()`, objects with an `id` property and arrays with an `id` key all work.
+3. The session key in `session.userIdKey`.
+
+The user row is then loaded from `users.table`. If your user entity implements `CakePasskeys\Contract\PasskeyUserInterface`, the plugin uses it as is. Otherwise it wraps the entity and reads the configured columns.
+
+## Re-confirming before a sensitive action
+
+Ask for a fresh passkey confirmation before, say, changing the email address.
+
+In the template, mark the form:
 
 ```php
-<input type="email" name="email"
-    <?= $this->Passkeys->autofillAttribute() ?> />
+<?= $this->Form->create($user, $this->Passkeys->reauthAttributes('change-email')) ?>
 ```
 
-Adds the `autocomplete="username webauthn"` attribute so the browser's
-autofill chip can surface passkeys (conditional UI). No button click
-required — the user picks a passkey from the email field's dropdown.
+The JavaScript runs the ceremony when the form is submitted and submits it afterwards. That is a convenience for the user. The check that counts is on the server:
 
 ```php
-<?= $this->cell('CakePasskeys.RegisterNudge') ?>
+use CakePasskeys\Service\Reauth;
+
+if (!Reauth::isFresh($this->request, 'change-email')) {
+    throw new ForbiddenException();
+}
 ```
 
-Post-login banner that suggests passkey enrollment to users who don't
-yet have one. Dismissible; reappears after a cooldown set by
-`NudgePolicy`.
+A confirmation stays fresh for `reauthWindow` seconds (default 900).
+
+## Events
+
+Dispatched on the global event manager. The payload is a `CakePasskeys\Event\PasskeyEvent` under the key `event`.
+
+| Event | When | Extra data |
+| --- | --- | --- |
+| `CakePasskeys.afterRegister` | a passkey was stored | |
+| `CakePasskeys.afterLogin` | a user signed in | |
+| `CakePasskeys.afterRename` | a passkey was renamed | `old`, `new` |
+| `CakePasskeys.afterDelete` | a passkey was deleted | |
+
+Attach listeners where they exist for every request, such as `Application::bootstrap()`:
 
 ```php
-<?= $this->Passkeys->reauthGuard('change-email') ?>
+use Cake\Event\EventInterface;
+use Cake\Event\EventManager;
+
+EventManager::instance()->on('CakePasskeys.afterLogin', function (EventInterface $event): void {
+    /** @var \CakePasskeys\Event\PasskeyEvent $passkeyEvent */
+    $passkeyEvent = $event->getData('event');
+    // $passkeyEvent->getPasskey()->user_id
+});
 ```
 
-Sensitive-action re-auth challenge. Renders an inline button that runs
-the WebAuthn ceremony before the form submits, so you can require fresh
-proof-of-presence for actions like email change or 2FA disable.
+A listener attached in your `AppController` does not run: the plugin's controller does not extend it. See [docs/Events.md](docs/Events.md).
 
-## JS package
+## JavaScript
+
+`script()` loads an 8 kB bundle that binds these attributes when the page has loaded:
+
+| Attribute | On | Effect |
+| --- | --- | --- |
+| `data-passkey-register` | button | registers a passkey, then reloads |
+| `data-passkey-authenticate` | button | signs in, then navigates to `redirectTo` |
+| `data-passkey-conditional` | input | offers passkeys in the autofill dropdown |
+| `data-passkey-reauth-required="action"` | form | asks for a passkey before submitting |
+| `data-passkey-rename`, `data-passkey-delete` | button inside `[data-passkey-row]` | renames or deletes that passkey |
+
+Errors are dispatched as a `passkeys:error` event on `document`.
+
+The same code is on npm, for bundlers and frameworks:
 
 ```bash
 npm install @dereuromark/cakephp-passkeys
 ```
 
-Entry points:
-
 ```js
-import { register, authenticate, conditional, reauth } from '@dereuromark/cakephp-passkeys';
-import { bind } from '@dereuromark/cakephp-passkeys/attributes';
-import { usePasskey } from '@dereuromark/cakephp-passkeys/react';
-import { usePasskey } from '@dereuromark/cakephp-passkeys/vue';
-import '@dereuromark/cakephp-passkeys/alpine';
-import { PasskeyController } from '@dereuromark/cakephp-passkeys/stimulus';
+import { register, authenticate, conditional, reauth, rename, remove } from '@dereuromark/cakephp-passkeys';
 ```
 
-For the zero-build path:
+Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](docs/JsApi.md).
 
-```php
-<?= $this->Passkeys->script() ?>
-```
+## Security
 
-serves a 6 kB IIFE bundle (2.18 kB gzipped) that auto-binds
-`data-passkey-*` attributes on `DOMContentLoaded`.
+- **CSRF.** Leave your CSRF protection on for the plugin's routes. `endpointsMeta()` hands the token to the JavaScript, which sends it with every request. `rename` and `delete` carry no WebAuthn challenge, so exempting them would open them to forged requests.
+- **Origin.** Set `allowedOrigins`. See the table above for what is accepted without it.
+- **Deactivated users.** A sign-in is refused when the user row is gone or `users.activeColumn` is false, even though the passkey itself is still valid.
+- **Rate limiting.** None by default. `login/start` is open to anonymous callers, so bind a `RateLimiterInterface` in production.
+- **Email hint.** With `login.emailHint` enabled, `login/start` returns the credential ids of the account behind an email address. That tells anyone whether the address has passkeys. Leave it off unless you need sign-in with security keys that hold no account information.
+- **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case.
+- **Synced passkeys** from iCloud Keychain or Google Password Manager report a signature counter of 0. That is accepted. A counter that goes backwards is refused.
 
-> [!NOTE]
-> `CakePasskeys.urlPrefix` controls **both** the route mount point AND the
-> asset URL. If you set `'urlPrefix' => '/auth/passkeys'` to namespace
-> the eight endpoints under a custom prefix, the helper's `script()`
-> tag automatically points at `/auth/passkeys/dist/passkeys.min.js`.
-> No additional asset config is required.
+More in [docs/SecurityModel.md](docs/SecurityModel.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
 
-## Events
+## Recovery
 
-| Event | Payload class | Extra data |
-| --- | --- | --- |
-| `CakePasskeys.afterRegister` | `PasskeyEvent($passkey, $userHandle)` | — |
-| `CakePasskeys.afterLogin` | `PasskeyEvent($passkey, $userHandle)` | — |
-| `CakePasskeys.afterRename` | `PasskeyEvent($passkey, $userHandle, ['old' => $old, 'new' => $new])` | rename diff |
-| `CakePasskeys.afterDelete` | `PasskeyEvent($passkey, $userHandle)` | — |
+The plugin has no recovery flow. A user who loses every device with a passkey needs another way in, such as a password or a sign-in link by email. Keep one.
 
-Subscribe via `$this->getEventManager()->on('CakePasskeys.afterX', ...)` —
-see the touchpoints section above.
+## Limitations
 
-## Security model
-
-- **RP-ID binding.** A passkey is bound to your origin; it cannot be
-  used cross-site.
-- **Library trust.** `web-auth/webauthn-lib ^5.0` performs origin
-  validation, RP-ID hash check, signature verification, and counter
-  rollback detection.
-- **Synced passkeys.** iCloud Keychain and Google Password Manager
-  always return `signCount=0`. Accepted unconditionally — the counter
-  rollback check is skipped for these credentials by design.
-- **User handle.** Hashed before transmission to the authenticator:
-  `hash_hmac('sha256', $userId, Security::salt())`. The raw DB id never
-  leaves the server.
-- **Rate limiter.** The plugin ships `NullRateLimiter` (no-op). Bind
-  your own `RateLimiterInterface` implementation in production —
-  WebAuthn endpoints are unauthenticated for the login flow and need
-  per-IP / per-handle throttling.
-- **CSRF.** The eight endpoints skip CSRF. The WebAuthn challenge nonce
-  is the anti-replay guard, mirroring the Stripe webhook pattern.
-- **Attestation.** No attestation pinning by default. Any FIDO2
-  authenticator is accepted. Override `WebAuthnService::buildOptions()`
-  if you need enterprise attestation.
-
-## Recovery flow
-
-Account recovery is host-owned — the plugin deliberately does not ship
-a recovery flow, because the right answer depends on your existing
-auth stack.
-
-Recommendation: combine with a magic-link login flow
-(`cakephp/authentication`'s URL identifier or your own implementation).
-If a user loses every passkey-bearing device, they request a magic link
-by email, click it, sign in, then register new passkeys and delete the
-dead ones from `/settings`.
-
-## Compatibility
-
-- **PHP** 8.2+ (matches the CakePHP 5.2 floor).
-- **CakePHP** 5.2+.
-- **Browsers:** Chrome/Edge 109+, Firefox 122+, Safari 16+ (macOS 13+,
-  iOS 16+).
-
-### Limitations (v0.1)
-
-- **Integer user IDs only.** The migration stores `user_id` as INTEGER
-  and `PasskeyUserInterface::getUserId()` returns `int`. UUID / string
-  primary keys on the host's `Users` table are not yet supported —
-  widening the contract is a v2 enhancement once we have a real-world
-  ask. Open a tracker entry on GitHub if you need this.
-
-> [!NOTE]
-> iOS 16 known limitation. The prepare/finish synchronous
-> user-activation pattern is not currently exposed at the JS API surface;
-> iOS 16 may reject WebAuthn calls that happen after a `fetch()`. iOS 17+
-> works. If field reports surface iOS 16 issues, the binder can be
-> extended with a prefetch strategy.
+- A passkey sign-in is a complete sign-in. Using a passkey as a second factor after a password is not supported: the login endpoints are anonymous and do not tie the passkey to the account that passed the first factor.
+- No attestation policy. Any authenticator is accepted.
 
 ## License
 

@@ -11,9 +11,9 @@ declare(strict_types=1);
  *     attributes, endpoints meta, hidden login button) that the browser
  *     bundle binds against?
  *
- * Static assets (the plugin's webroot/dist/passkeys.min.js) are served via
+ * Static assets (the plugin's webroot/js/passkeys.min.js) are served via
  * the PHP built-in webserver — `php -S` invokes index.php as a router
- * script, so URLs like /passkeys/dist/passkeys.min.js land here, get the
+ * script, so URLs like /cake_passkeys/js/passkeys.min.js land here, get the
  * path inspected, and we stream the file from the plugin's webroot.
  */
 
@@ -40,14 +40,14 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-// php -S router-script: serve the plugin's webroot/dist/* directly when the
-// browser requests /passkeys/dist/passkeys.min.js so the bundle is reachable
+// php -S router-script: serve the plugin's webroot/js/* directly when the
+// browser requests /cake_passkeys/js/passkeys.min.js so the bundle is reachable
 // from the harness without standing up a separate static-file server.
 if (PHP_SAPI === 'cli-server') {
     $requestedPath = (string)parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH);
-    if (str_starts_with($requestedPath, '/passkeys/dist/')) {
-        $rel = substr($requestedPath, strlen('/passkeys/dist/'));
-        $file = dirname(__DIR__, 4) . '/webroot/dist/' . $rel;
+    if (str_starts_with($requestedPath, '/cake_passkeys/js/')) {
+        $rel = substr($requestedPath, strlen('/cake_passkeys/js/'));
+        $file = dirname(__DIR__, 4) . '/webroot/js/' . $rel;
         if (is_file($file)) {
             $ext = pathinfo($file, PATHINFO_EXTENSION);
             $type = match ($ext) {
@@ -95,6 +95,7 @@ Configure::write('App', [
     'namespace' => 'HarnessApp',
     'encoding' => 'UTF-8',
     'defaultLocale' => 'en_US',
+    'jsBaseUrl' => 'js/',
     'paths' => ['plugins' => []],
 ]);
 Configure::write('CakePasskeys', [
@@ -106,7 +107,6 @@ Configure::write('CakePasskeys', [
         'columns' => ['id' => 'id', 'email' => 'email', 'displayName' => 'name'],
         'activeColumn' => null,
     ],
-    'tenancy' => ['column' => null, 'sessionKey' => null],
     'cache' => 'default',
 ]);
 

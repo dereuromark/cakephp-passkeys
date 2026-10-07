@@ -8,8 +8,7 @@ import { test, expect } from '@playwright/test';
  * Why a smoke spec rather than a full register/login round-trip: the harness
  * is intentionally tiny — it does not wire CSRF, sessions, or the host's
  * auth pipeline, so the JSON ceremony endpoints (which are unit-tested
- * already) are out of scope here. The full round-trip with a virtual
- * authenticator lands once the plugin is consumed by RentCraft (Task 26).
+ * already) are out of scope here.
  */
 
 test('plugin boots and renders the manager cell empty state', async ({ page }) => {
@@ -19,7 +18,7 @@ test('plugin boots and renders the manager cell empty state', async ({ page }) =
     await expect(page).toHaveTitle('Settings');
 
     // Helper output: bundle script + endpoints meta are in <head>.
-    await expect(page.locator('script[src*="/passkeys/dist/passkeys.min.js"]')).toBeAttached();
+    await expect(page.locator('script[src*="/cake_passkeys/js/passkeys.min.js"]')).toBeAttached();
     await expect(page.locator('meta[name="passkeys-endpoints"]')).toBeAttached();
 
     // Manager cell renders the empty-state explainer + the "Add a passkey"
@@ -55,8 +54,8 @@ test('login page renders the passkey button and the bundle binds + unhides it', 
 
 test('bundle is reachable as a real asset and exposes the IIFE namespace', async ({ page }) => {
     // Direct fetch — proves the route-script fallback in index.php correctly
-    // streams the plugin's webroot/dist bundle.
-    const resp = await page.request.get('/passkeys/dist/passkeys.min.js');
+    // streams the plugin's webroot/js bundle.
+    const resp = await page.request.get('/cake_passkeys/js/passkeys.min.js');
     expect(resp.status()).toBe(200);
     const body = await resp.text();
     expect(body).toContain('Passkeys'); // IIFE global

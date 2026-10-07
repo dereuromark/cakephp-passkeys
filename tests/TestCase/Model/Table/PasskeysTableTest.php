@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace CakePasskeys\Test\TestCase\Model\Table;
 
-use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\Model\Table\PasskeysTable;
 use Migrations\Migrations;
@@ -16,7 +15,6 @@ class PasskeysTableTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('CakePasskeys.tenancy.column', null);
         $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();

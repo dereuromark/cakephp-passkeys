@@ -1,85 +1,77 @@
-# Modes — Passwordless vs 2FA
+# Sign-in and re-confirmation
 
-The plugin supports both modes equally. **Pick one explicitly** and
-wire your auth middleware to match. The wrong default lands wrong
-defaults in production.
+## Sign-in
 
-## Passwordless mode
+A passkey sign-in is a complete sign-in. The user needs no password for it.
 
-Passkey login is the full auth ceremony. The browser performs user
-verification (biometric / PIN) as part of the WebAuthn call, which the
-FIDO2 spec defines as multi-factor in a single step. The plugin writes
-`$session->write('CakePasskeys.mfa_satisfied', true)` on a UV-verified
-login, and your MFA gate should accept that as "already multi-factor."
+The flow:
 
-Typical wiring:
+1. The page calls `login/start`. The plugin creates a challenge, keeps it in the cache and remembers its key in the browser's session.
+2. The browser asks the authenticator, which signs the challenge.
+3. The page sends the result to `login/finish`. The plugin checks that this session started the challenge, verifies the signature, and checks that the owner of the passkey still exists and may sign in.
+
+On success the plugin:
+
+- renews the session id
+- writes the user id to the session key in `CakePasskeys.session.userIdKey`
+- sets the session flag `CakePasskeys.mfa_satisfied` to `true` when `ceremony.userVerification` is `required`
+- dispatches `CakePasskeys.afterLogin`
+
+Your application turns that into its own notion of "signed in". Two common ways:
 
 ```php
-// AppController::beforeFilter()
-$mfaSatisfied = $this->getRequest()->getSession()->read(
-    (string)\Cake\Core\Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied'),
-);
+// config: write the id where your session authenticator reads it
+'CakePasskeys' => [
+    'session' => ['userIdKey' => 'Auth.id'],
+],
+```
 
-if ($this->requires2fa() && !$mfaSatisfied) {
-    return $this->redirect(['controller' => 'Mfa', 'action' => 'prompt']);
+```php
+// or build the identity yourself, in Application::bootstrap()
+EventManager::instance()->on('CakePasskeys.afterLogin', function (EventInterface $event): void {
+    $userId = $event->getData('event')->getPasskey()->user_id;
+    // load the user, write your session, record the login
+});
+```
+
+Set `session.userIdKey` to an empty string if you only want the event.
+
+### The `mfa_satisfied` flag
+
+With user verification required, the authenticator checked a PIN, a fingerprint or a face before it signed. Possession of the device plus that check are two factors. If your application has a step that asks for a second factor after sign-in, it can skip it when the flag is set.
+
+The flag is not set when you lower `ceremony.userVerification` to `preferred` or `discouraged`, because the sign-in then proves possession only.
+
+### Passkey as a second factor
+
+Not supported. The login endpoints are anonymous and do not know which account passed a first factor, so they cannot make sure the passkey belongs to that same account. Use [re-confirmation](#re-confirmation) for "prove it is still you" after a sign-in.
+
+## Re-confirmation
+
+Use it before an action that should not be possible on an unattended browser: changing the email address, deleting the account, showing recovery codes.
+
+`reauth/start` and `reauth/finish` only accept the passkeys of the signed-in user and always require user verification. On success the plugin stores in the session, per action name, who confirmed and until when that counts. `Reauth::isFresh()` only answers true for that same user.
+
+The window is `CakePasskeys.reauthWindow` seconds, 900 by default. Action names consist of letters, digits, `-` and `_`.
+
+In the template:
+
+```php
+<?= $this->Form->create($user, $this->Passkeys->reauthAttributes('delete-account')) ?>
+```
+
+In the controller action that performs the change:
+
+```php
+use CakePasskeys\Service\Reauth;
+
+if (!Reauth::isFresh($this->request, 'delete-account')) {
+    throw new ForbiddenException();
 }
 ```
 
-When to pick this: most consumer apps. Removes a friction layer for
-users; keeps phishing resistance because the passkey is bound to your
-origin.
+The attribute makes the JavaScript run the ceremony before the form is submitted. The server-side check is what protects the action.
 
-## 2FA mode
+## Recovery
 
-User logs in with email + password first. The passkey is the second
-factor that satisfies the MFA gate. Same session flag, different
-sequencing: the password-login flow is the user-experience entry point,
-the passkey ceremony fires after.
-
-Typical wiring:
-
-```php
-// UsersController::login() — after password verification
-if ($passwordOk && $user->totp_enabled || $user->passkeys_count > 0) {
-    return $this->redirect(['controller' => 'Mfa', 'action' => 'choose']);
-}
-```
-
-Where the user picks "passkey" → kicks the plugin's `loginStart` ceremony
-→ on success the session flag is set → main app sees both factors
-satisfied.
-
-When to pick this: regulated environments where password is a policy
-requirement and passkey is an enhancement, not a replacement.
-
-## Re-auth (sensitive-action confirmation)
-
-Independent of mode. For sensitive actions (delete account, rotate
-recovery codes, change email), guard the form with:
-
-```php
-<?= $this->Passkeys->reauthGuard('delete-account') ?>
-<form data-passkey-reauth-required="delete-account" method="post" action="/account/delete">
-    ...
-</form>
-```
-
-The JS binder intercepts the form's first submit, runs the WebAuthn
-reauth ceremony, then resubmits the form when the ceremony succeeds.
-The session records `CakePasskeys.recent_reauth.delete-account = ISO8601`
-until `CakePasskeys.reauthWindow` seconds pass.
-
-## Recovery — host-owned
-
-The plugin deliberately ships no recovery flow. If a user loses every
-passkey-bearing device:
-
-1. Recommended: pair with a magic-link login (`cakephp/authentication`'s
-   URL identifier or equivalent). User requests a one-time email link,
-   clicks it, lands signed-in, then registers a fresh passkey and
-   deletes the dead ones from `/settings`.
-2. Alternative: keep email/password as a permanent fallback even in
-   passwordless mode.
-
-Whatever you pick, document it in your product's help text so users
-know what to do.
+A user who loses every device with a passkey cannot sign in with one. Keep another way in, such as a password or a sign-in link sent by email, and let users delete lost passkeys in the manager afterwards.

@@ -82,4 +82,54 @@ describe('attributes binder', () => {
         form.dispatchEvent(ev);
         expect(ev.defaultPrevented).toBe(true);
     });
+    it('renames a passkey with the CSRF token and updates the row', async () => {
+        document.body.innerHTML = `
+            <meta name="passkeys-endpoints" content='${JSON.stringify({ ...endpoints, rename: '/passkeys/rename/__id__', csrfToken: 'tok' })}'>
+            <table><tr data-passkey-row data-passkey-id="7">
+                <td><span data-passkey-name>Old</span><button data-passkey-rename>r</button></td>
+            </tr></table>
+        `;
+        const calls: any[] = [];
+        const origFetch = globalThis.fetch;
+        const origPrompt = window.prompt;
+        (globalThis as any).fetch = async (url: string, init: any) => {
+            calls.push({ url, init });
+            return { ok: true, json: async () => ({ passkey: { id: 7, name: 'New' } }) };
+        };
+        window.prompt = () => 'New';
+        bind();
+        const renameBtn = document.querySelector('[data-passkey-rename]') as HTMLButtonElement;
+        renameBtn.click();
+        expect(renameBtn.disabled).toBe(true);
+        await new Promise((r) => setTimeout(r, 0));
+        expect(renameBtn.disabled).toBe(false);
+        globalThis.fetch = origFetch;
+        window.prompt = origPrompt;
+
+        expect(calls[0].url).toBe('/passkeys/rename/7');
+        expect(calls[0].init.headers['X-CSRF-Token']).toBe('tok');
+        expect(JSON.parse(calls[0].init.body)).toEqual({ name: 'New' });
+        expect(document.querySelector('[data-passkey-name]')!.textContent).toBe('New');
+    });
+
+    it('shows the nudge unless it was dismissed within the configured days', () => {
+        const html = `
+            <meta name="passkeys-endpoints" content='${JSON.stringify(endpoints)}'>
+            <div data-passkey-nudge data-passkey-nudge-days="14" hidden>
+                <button data-passkey-nudge-dismiss>Not now</button>
+            </div>
+        `;
+        window.localStorage.clear();
+        document.body.innerHTML = html;
+        bind();
+        const nudge = document.querySelector('[data-passkey-nudge]') as HTMLElement;
+        expect(nudge.hidden).toBe(false);
+
+        (nudge.querySelector('[data-passkey-nudge-dismiss]') as HTMLButtonElement).click();
+        expect(nudge.hidden).toBe(true);
+
+        document.body.innerHTML = html;
+        bind();
+        expect((document.querySelector('[data-passkey-nudge]') as HTMLElement).hidden).toBe(true);
+    });
 });

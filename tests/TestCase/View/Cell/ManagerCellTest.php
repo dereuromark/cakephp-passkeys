@@ -23,7 +23,6 @@ class ManagerCellTest extends TestCase
         Configure::write('CakePasskeys.enabled', true);
         Configure::write('CakePasskeys.maxPerUser', 5);
         Configure::write('CakePasskeys.docsUrl', null);
-        Configure::write('CakePasskeys.tenancy.column', null);
 
         $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);

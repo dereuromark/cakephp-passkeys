@@ -18,12 +18,9 @@ class RegisterNudgeCellTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Configure::write('CakePasskeys.tenancy.column', null);
-        Configure::write('CakePasskeys.nudge', [
-            'enabled' => true,
-            'afterLogins' => 3,
-            'redisplayAfterDays' => 14,
-        ]);
+        Configure::write('CakePasskeys.enabled', true);
+        Configure::write('CakePasskeys.identityResolver', null);
+        Configure::write('CakePasskeys.nudge', ['enabled' => true, 'redisplayAfterDays' => 14]);
         $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
         $migrations->migrate();
@@ -61,10 +58,11 @@ class RegisterNudgeCellTest extends TestCase
     /**
      * @return void
      */
-    public function testHiddenWhenPolicyRejects(): void
+    public function testHiddenWhenNudgeDisabled(): void
     {
-        $html = $this->renderCell(userId: 1, loginCount: 1);
-        $this->assertSame('', trim($html));
+        Configure::write('CakePasskeys.nudge.enabled', false);
+
+        $this->assertSame('', trim($this->renderCell(userId: 1, loginCount: 0)));
     }
 
     /**

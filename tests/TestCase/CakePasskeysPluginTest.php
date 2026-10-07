@@ -30,7 +30,6 @@ class CakePasskeysPluginTest extends TestCase
         $this->assertSame(5, Configure::read('CakePasskeys.maxPerUser'));
         $this->assertSame(300, Configure::read('CakePasskeys.challengeTtl'));
         $this->assertSame('required', Configure::read('CakePasskeys.ceremony.userVerification'));
-        $this->assertNull(Configure::read('CakePasskeys.tenancy.column'));
     }
 
     public function testHostConfigOverridesDefaults(): void

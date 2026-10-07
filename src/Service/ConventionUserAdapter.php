@@ -64,11 +64,13 @@ class ConventionUserAdapter implements PasskeyUserInterface
     }
 
     /**
-     * @return int
+     * @return string|int
      */
-    public function getUserId(): int
+    public function getUserId(): string|int
     {
-        return (int)$this->entity->get($this->col('id'));
+        $id = $this->entity->get($this->col('id'));
+
+        return is_int($id) ? $id : (string)$id;
     }
 
     /**

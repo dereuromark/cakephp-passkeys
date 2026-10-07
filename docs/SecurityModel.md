@@ -1,95 +1,79 @@
 # Security model
 
-What the plugin verifies, what it leaves to the host, what to watch
-when reviewing.
+## What is verified
 
-## What the plugin checks
+For every registration, sign-in and re-confirmation, `web-auth/webauthn-lib` checks:
 
-Per the WebAuthn / FIDO2 specs, delegated to
-[`web-auth/webauthn-lib ^5.0`](https://github.com/web-auth/webauthn-framework):
+- the challenge is the one the plugin issued
+- the response comes from an allowed origin
+- the relying party id hash matches
+- the signature is valid for the stored public key
+- the user was present, and verified when required
+- the signature counter did not go backwards
 
-- **Origin binding.** A passkey is bound to your origin via the
-  Relying Party ID. The library rejects any ceremony where the
-  authenticator-reported origin does not match the configured `rpId`.
-  This is the structural defense against phishing.
-- **RP-ID hash check.** Authenticator data carries the SHA-256 of the
-  RP-ID; the library validates it against the configured value.
-- **Signature verification.** The authenticator signs over
-  `(authData || clientDataJSON-hash)`; the library validates the
-  signature against the stored public key.
-- **Counter rollback.** `signCount` must be strictly greater than the
-  stored count when non-zero. Synced passkeys (iCloud Keychain, Google
-  Password Manager) always return `signCount = 0` and are accepted
-  unconditionally — by spec, those don't track a counter.
-- **User verification.** Configurable via `CakePasskeys.ceremony.userVerification`
-  (default `required` on login). When `required`, the library rejects
-  ceremonies whose `UV` flag is unset.
+The plugin adds:
 
-## What the plugin manages itself
+- **Single use.** A challenge is removed when it is used. Two requests racing on the same challenge cannot both pass.
+- **Expiry.** Challenges live for `challengeTtl` seconds, 300 by default.
+- **Binding.** A registration or re-confirmation challenge belongs to the user who started it. A sign-in challenge belongs to the browser session that started it.
+- **Account state.** A sign-in is refused when the owner of the passkey no longer exists or is not eligible, for example because `users.activeColumn` is false.
+- **Ownership.** `rename` and `delete` only act on passkeys of the signed-in user.
+- **Session fixation.** The session id is renewed before the user id is written.
 
-- **Challenge nonce store.** Each `start*` call issues a random 16-byte
-  challenge, stores it in a cache engine with `CakePasskeys.challengeTtl`
-  duration (default 300 s), and consumes it on the matching `finish*`
-  call. One-shot semantics — replay is rejected because the second
-  consume returns null.
-- **User handle privacy.** The WebAuthn `user.id` field exposed to the
-  authenticator is **never** the raw DB row id. It is
-  `hash_hmac('sha256', $userId, Security::salt())`. Compromising a
-  passkey row does not reveal the host's primary-key sequence.
-- **Per-user cap.** `CakePasskeys.maxPerUser` (default 5) caps the number
-  of passkeys a single user can register. Prevents the abuse case where
-  an attacker who briefly compromises a session piles dozens of their
-  own passkeys onto the account.
-- **Session ID renewal on login.** `loginFinish()` calls
-  `$session->renew()` before any identity write. Closes the
-  session-fixation attack where an attacker fixes a pre-auth session
-  cookie on the victim's browser.
+## What your application has to do
 
-## What the host owns
+### Keep CSRF protection on
 
-These are deliberate seams. The plugin documents them; the host wires.
+The plugin's routes work with CakePHP's CSRF middleware. `PasskeysHelper::endpointsMeta()` passes the token to the JavaScript, which sends it as `X-CSRF-Token`.
 
-- **Rate limiting.** The plugin ships a `NullRateLimiter` (no-op) by
-  default. Bind your own `CakePasskeys\Contract\RateLimiterInterface`
-  implementation via `CakePasskeys.rateLimiter` config. Recommended
-  protection: per-IP throttle on `loginStart` (unauthenticated, open
-  to enumeration); per-user-handle throttle on `registerStart`.
-- **CSRF skip on the plugin's 8 endpoints.** The plugin's URLs handle
-  raw JSON request/response bodies and use the WebAuthn challenge nonce
-  as the anti-replay guard — same pattern as Stripe webhooks. The host
-  must add a `skipCheckCallback` for `/passkeys/*` in the CSRF
-  middleware setup (README ships the snippet). Forgetting this breaks
-  the plugin entirely with a clear error; failure mode is loud.
-- **Audit logging.** All four lifecycle events fire on the Cake event
-  manager. Host subscribes and writes whatever audit shape it uses.
-- **Identity hand-off after login.** The plugin writes the configured
-  session key (`CakePasskeys.session.userIdKey`, default `Auth.id`) on
-  successful login. Host's auth middleware reads it; the plugin does
-  not call `setIdentity()` directly because every auth stack has a
-  different identity object shape.
-- **Recovery flow.** See [Modes — Recovery](Modes.md#recovery---host-owned).
-- **`CakePasskeys.enabled = false`.** When the master switch is off, the
-  plugin's `beforeFilter()` returns 404 on all 8 endpoints and the
-  Cells / Helper render empty. Host should hide its own related UI too
-  if any survived.
+Do not exempt the routes. `rename` and `delete` carry no WebAuthn challenge, so nothing else stops a forged request. For `login/finish`, the session binding above is a second line of defense, not a replacement.
 
-## Posture decisions worth knowing
+### Set the allowed origins
 
-- **No attestation pinning.** Any FIDO2-conformant authenticator is
-  accepted. Enterprise environments that need to restrict to specific
-  hardware can extend `WebAuthnService::buildOptions()` to enable the
-  metadata service. Out of scope for v0.1.
-- **Library version pin.** `web-auth/webauthn-lib: ^5.0` is hard-pinned
-  in `composer.json`. Major bumps (any `^6`) require an explicit,
-  security-reviewed plugin release — never a transparent dependency
-  upgrade. The pin policy is documented in CONTRIBUTING.md.
-- **AAGUID label snapshot.** Bundled `resources/aaguid-map.json`
-  (~50 entries) is used purely for display purposes ("iCloud Keychain"
-  vs "YubiKey 5"). A label mismatch is a UX issue, never a security
-  bypass — the AAGUID itself is still recorded in raw form and used
-  only after the ceremony validates.
+```php
+'CakePasskeys' => [
+    'rpId' => 'example.com',
+    'allowedOrigins' => ['https://example.com'],
+],
+```
 
-## Reporting a vulnerability
+Without `allowedOrigins`, a response is accepted from any HTTPS origin whose host is the `rpId` or a subdomain of it, on any port. If other applications run on subdomains you do not fully trust, that is too wide.
 
-Do not file a public issue. See [SECURITY.md](../SECURITY.md) for the
-private-disclosure channels.
+`http://localhost` is accepted for development. Every other origin has to be HTTPS.
+
+### Rate limiting
+
+The plugin ships a limiter that does nothing. `login/start` can be called by anyone, so bind your own:
+
+```php
+'CakePasskeys' => [
+    'rateLimiter' => \App\Security\PasskeyRateLimiter::class,
+],
+```
+
+The class implements `CakePasskeys\Contract\RateLimiterInterface`. The plugin calls it with these buckets:
+
+| Bucket | Limit |
+| --- | --- |
+| `passkeys.login.<ip>` | 20 per minute |
+| `passkeys.register.<user id>` | 10 per minute |
+| `passkeys.reauth.<user id>` | 20 per minute |
+
+### Say who the current user is
+
+The endpoints for registering, renaming, deleting and re-confirming trust the user id they are given. See "Who is signed in" in the README. If you set `identityResolver`, it must return the id of the authenticated user of this request and nothing a client can choose.
+
+## Design decisions
+
+- **User handle.** The id sent to the authenticator is `hash_hmac('sha256', $userId, Security.salt)`, not the database id. Changing `Security.salt` afterwards breaks sign-in for existing passkeys.
+- **Email hint off by default.** With `login.emailHint` enabled, `login/start` returns the credential ids for an email address. Anyone can then test whether an address has passkeys. It is only needed for security keys that store no account information.
+- **Synced passkeys.** iCloud Keychain and Google Password Manager report a counter of 0. A counter of 0 is accepted every time; any other value has to increase.
+- **Algorithms.** ES256 and RS256 are offered. Both can be verified by the library as configured.
+- **Attestation.** Requested as `none`. Any authenticator is accepted, and its make is not verified. The device label shown in the manager comes from the AAGUID the authenticator reports and is informational.
+- **Error messages.** A failed check answers with HTTP 400 and a fixed message. The reason is not sent to the browser.
+
+## Not covered
+
+- An attacker with write access to the cache can read or remove challenges.
+- An attacker with write access to the `passkeys` table can add a credential for any user.
+- Recovery after losing all passkeys is up to your application.
