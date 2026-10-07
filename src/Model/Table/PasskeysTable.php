@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace CakePasskeys\Model\Table;
 
+use Cake\Database\TypeFactory;
 use Cake\ORM\Table;
 use Cake\Validation\Validator;
+use CakePasskeys\Database\Type\BinaryStringType;
 use CakePasskeys\Model\Entity\Passkey;
 
 /**
@@ -16,6 +18,13 @@ use CakePasskeys\Model\Entity\Passkey;
  */
 class PasskeysTable extends Table
 {
+    /**
+     * Name the byte-string column type is registered under.
+     *
+     * @var string
+     */
+    public const BINARY_TYPE = 'passkeys_binary';
+
     /**
      * @param array<string, mixed> $config
      *
@@ -29,20 +38,16 @@ class PasskeysTable extends Table
         $this->setEntityClass(Passkey::class);
         $this->addBehavior('Timestamp');
 
-        // CRITICAL: Binary columns default to the `binary` type which returns
-        // a stream resource on read. The WebAuthn library expects raw byte
-        // strings (CBOR + COSE parsing reads them via StringStream), and
-        // casting a stream resource to (string) yields "Resource id #N"
-        // instead of the bytes, which then breaks parsing with
-        // "Out of range. Expected: 18, read: 14.".
-        //
-        // Force-map to `string` so the bytes come back as a PHP string.
-        // Storage is unchanged (still BLOB / VARBINARY on the DB side).
-        // This is the exact bug that took two debug rounds in RentCraft.
+        // The core `binary` type returns a stream resource on read. The
+        // WebAuthn library expects raw byte strings, and a resource cast to
+        // string is "Resource id #N", which breaks CBOR parsing with
+        // "Out of range. Expected: 18, read: 14.". BinaryStringType reads as
+        // a string and still binds as binary, which PostgreSQL requires.
+        TypeFactory::map(static::BINARY_TYPE, BinaryStringType::class);
         $schema = $this->getSchema();
-        $schema->setColumnType('credential_id', 'string');
-        $schema->setColumnType('public_key', 'string');
-        $schema->setColumnType('aaguid', 'string');
+        $schema->setColumnType('credential_id', static::BINARY_TYPE);
+        $schema->setColumnType('public_key', static::BINARY_TYPE);
+        $schema->setColumnType('aaguid', static::BINARY_TYPE);
         $this->setSchema($schema);
     }
 

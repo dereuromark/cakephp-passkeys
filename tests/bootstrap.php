@@ -40,10 +40,9 @@ Configure::write('App', [
     'paths' => ['plugins' => [ROOT . '/tests/test_app/plugins/']],
 ]);
 
+// DB_URL selects the database, so CI can run the suite on MySQL and PostgreSQL too.
 ConnectionManager::setConfig('test', [
-    'className' => 'Cake\Database\Connection',
-    'driver' => 'Cake\Database\Driver\Sqlite',
-    'database' => ':memory:',
+    'url' => getenv('DB_URL') ?: 'sqlite:///:memory:',
     'cacheMetadata' => false,
     'quoteIdentifiers' => true,
 ]);
