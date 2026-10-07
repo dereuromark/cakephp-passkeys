@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - PostgreSQL: passkeys can be stored and looked up. The binary columns
   were bound as text, which PostgreSQL rejects for `bytea`.
+- Login and reauthentication work. Every assertion was rejected with an
+  invalid user handle, because the credential was checked against the
+  database id and not the handle it was registered with.
+- **Security:** a passkey of a deactivated or deleted user no longer logs in.
+- Malformed responses and failed library checks are reported as a 400, not
+  as a server error.
+- EdDSA is no longer offered at registration. Such a credential could be
+  registered but its signature never verified.
 
 ## [0.1.0] - 2026-05-13
 

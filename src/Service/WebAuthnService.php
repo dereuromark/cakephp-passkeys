@@ -10,8 +10,10 @@ use Cake\ORM\Locator\LocatorAwareTrait;
 use CakePasskeys\Contract\PasskeyUserInterface;
 use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Model\Table\PasskeysTable;
+use Closure;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Uid\Uuid;
+use Throwable;
 use Webauthn\AttestationStatement\AttestationStatementSupportManager;
 use Webauthn\AuthenticatorAssertionResponse;
 use Webauthn\AuthenticatorAssertionResponseValidator;
@@ -207,23 +209,21 @@ class WebAuthnService
 
         $credentialJson = $this->encodeBrowserResponse($clientResponse['response'] ?? $clientResponse);
 
-        $opts = $this->serializer->deserialize(
-            (string)$stash['options'],
-            PublicKeyCredentialCreationOptions::class,
-            'json',
-        );
-        $publicKeyCredential = $this->serializer->deserialize($credentialJson, PublicKeyCredential::class, 'json');
+        $source = $this->verified(function () use ($stash, $credentialJson): CredentialRecord {
+            $opts = $this->serializer->deserialize(
+                (string)$stash['options'],
+                PublicKeyCredentialCreationOptions::class,
+                'json',
+            );
+            $publicKeyCredential = $this->serializer->deserialize($credentialJson, PublicKeyCredential::class, 'json');
 
-        $attestationResponse = $publicKeyCredential->response;
-        if (!$attestationResponse instanceof AuthenticatorAttestationResponse) {
-            throw new WebAuthnException('Expected attestation response.');
-        }
+            $attestationResponse = $publicKeyCredential->response;
+            if (!$attestationResponse instanceof AuthenticatorAttestationResponse) {
+                throw new WebAuthnException('Expected attestation response.');
+            }
 
-        $source = $this->attestationValidator->check(
-            $attestationResponse,
-            $opts,
-            $this->rpId,
-        );
+            return $this->attestationValidator->check($attestationResponse, $opts, $this->rpId);
+        });
 
         $aaguidString = $source->aaguid->__toString();
         $aaguidBytes = $aaguidString !== self::ZERO_UUID ? $this->uuidToBytes($aaguidString) : null;
@@ -316,17 +316,7 @@ class WebAuthnService
 
         $credentialJson = $this->encodeBrowserResponse($clientResponse['response'] ?? $clientResponse);
 
-        $opts = $this->serializer->deserialize(
-            (string)$stash['options'],
-            PublicKeyCredentialRequestOptions::class,
-            'json',
-        );
-        $publicKeyCredential = $this->serializer->deserialize($credentialJson, PublicKeyCredential::class, 'json');
-
-        $assertionResponse = $publicKeyCredential->response;
-        if (!$assertionResponse instanceof AuthenticatorAssertionResponse) {
-            throw new WebAuthnException('Expected assertion response.');
-        }
+        [$publicKeyCredential, $assertionResponse, $opts] = $this->parseAssertion($stash, $credentialJson);
 
         // rawId on the deserialized object is the *decoded* binary credential
         // identifier — that's what we stored on the Passkey row.
@@ -338,15 +328,15 @@ class WebAuthnService
             throw new WebAuthnException('Unknown passkey credential.');
         }
 
-        $source = $this->passkeyToSource($passkey);
+        // The credential names its owner. That account must still exist and
+        // be allowed to sign in: a passkey outlives a deactivated user. Same
+        // message as an unknown credential, so the two cannot be told apart.
+        $user = $this->userResolver->byId($passkey->user_id);
+        if ($user === null || !$user->isPasskeyEligible()) {
+            throw new WebAuthnException('Unknown passkey credential.');
+        }
 
-        $updated = $this->assertionValidator->check(
-            $source,
-            $assertionResponse,
-            $opts,
-            $this->rpId,
-            null,
-        );
+        $updated = $this->checkAssertion($passkey, $user, $assertionResponse, $opts);
 
         $newCounter = (int)$updated->counter;
         $oldCounter = (int)$passkey->sign_count;
@@ -431,17 +421,7 @@ class WebAuthnService
 
         $credentialJson = $this->encodeBrowserResponse($clientResponse['response'] ?? $clientResponse);
 
-        $opts = $this->serializer->deserialize(
-            (string)$stash['options'],
-            PublicKeyCredentialRequestOptions::class,
-            'json',
-        );
-        $publicKeyCredential = $this->serializer->deserialize($credentialJson, PublicKeyCredential::class, 'json');
-
-        $assertionResponse = $publicKeyCredential->response;
-        if (!$assertionResponse instanceof AuthenticatorAssertionResponse) {
-            throw new WebAuthnException('Expected assertion response.');
-        }
+        [$publicKeyCredential, $assertionResponse, $opts] = $this->parseAssertion($stash, $credentialJson);
 
         $passkey = $this->passkeys()
             ->find()
@@ -454,15 +434,7 @@ class WebAuthnService
             throw new WebAuthnException('Unknown passkey credential for this user.');
         }
 
-        $source = $this->passkeyToSource($passkey);
-
-        $updated = $this->assertionValidator->check(
-            $source,
-            $assertionResponse,
-            $opts,
-            $this->rpId,
-            null,
-        );
+        $updated = $this->checkAssertion($passkey, $user, $assertionResponse, $opts);
 
         $newCounter = (int)$updated->counter;
         $oldCounter = (int)$passkey->sign_count;
@@ -475,6 +447,91 @@ class WebAuthnService
         $this->passkeys()->saveOrFail($passkey);
 
         return true;
+    }
+
+    /**
+     * Parses the browser's assertion and the stashed request options.
+     *
+     * @param array<string, mixed> $stash Challenge payload from the store
+     * @param string $credentialJson The browser's `PublicKeyCredential` as JSON
+     *
+     * @return array{0: \Webauthn\PublicKeyCredential, 1: \Webauthn\AuthenticatorAssertionResponse, 2: \Webauthn\PublicKeyCredentialRequestOptions}
+     */
+    private function parseAssertion(array $stash, string $credentialJson): array
+    {
+        return $this->verified(function () use ($stash, $credentialJson): array {
+            $opts = $this->serializer->deserialize(
+                (string)$stash['options'],
+                PublicKeyCredentialRequestOptions::class,
+                'json',
+            );
+            $publicKeyCredential = $this->serializer->deserialize($credentialJson, PublicKeyCredential::class, 'json');
+
+            $assertionResponse = $publicKeyCredential->response;
+            if (!$assertionResponse instanceof AuthenticatorAssertionResponse) {
+                throw new WebAuthnException('Expected assertion response.');
+            }
+
+            return [$publicKeyCredential, $assertionResponse, $opts];
+        });
+    }
+
+    /**
+     * Validates an assertion against a stored passkey of a known user.
+     *
+     * The library compares the user handle of the credential with the one the
+     * authenticator returns, which is the handle sent at registration. So the
+     * record is built with that handle, not with the database id, and the
+     * handle is passed as the expected one: a credential that is not
+     * discoverable returns none, and the library then needs it from here.
+     *
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user The passkey's owner
+     * @param \Webauthn\AuthenticatorAssertionResponse $assertionResponse
+     * @param \Webauthn\PublicKeyCredentialRequestOptions $opts
+     *
+     * @return \Webauthn\CredentialRecord
+     */
+    private function checkAssertion(
+        Passkey $passkey,
+        PasskeyUserInterface $user,
+        AuthenticatorAssertionResponse $assertionResponse,
+        PublicKeyCredentialRequestOptions $opts,
+    ): CredentialRecord {
+        $userHandle = $user->getPasskeyUserHandle();
+
+        return $this->verified(fn (): CredentialRecord => $this->assertionValidator->check(
+            $this->passkeyToSource($passkey, $userHandle),
+            $assertionResponse,
+            $opts,
+            $this->rpId,
+            $userHandle,
+        ));
+    }
+
+    /**
+     * Runs parsing or validation and reports any failure as a
+     * WebAuthnException. The serializer and the library throw their own
+     * exception types for malformed input and failed checks. Those are client
+     * errors, and their messages are not meant for the browser.
+     *
+     * @template T
+     *
+     * @param \Closure(): T $step
+     *
+     * @throws \CakePasskeys\Service\WebAuthnException
+     *
+     * @return T
+     */
+    private function verified(Closure $step): mixed
+    {
+        try {
+            return $step();
+        } catch (WebAuthnException $e) {
+            throw $e;
+        } catch (Throwable $e) {
+            throw new WebAuthnException('Passkey verification failed.', 0, $e);
+        }
     }
 
     /**
@@ -500,15 +557,16 @@ class WebAuthnService
     }
 
     /**
-     * Default COSE algorithm selection: ES256 (most compatible) + RS256
-     * (Windows Hello fallback) + EdDSA (modern).
+     * COSE algorithms offered at registration: ES256 (most compatible) and
+     * RS256 (Windows Hello fallback). Only algorithms the assertion validator
+     * can verify belong here; a credential made with any other one registers
+     * and then never logs in.
      *
      * @return list<\Webauthn\PublicKeyCredentialParameters>
      */
     private function defaultPubKeyCredParams(): array
     {
         return [
-            PublicKeyCredentialParameters::create('public-key', -8), // EdDSA
             PublicKeyCredentialParameters::create('public-key', -7), // ES256
             PublicKeyCredentialParameters::create('public-key', -257), // RS256
         ];
@@ -563,10 +621,11 @@ class WebAuthnService
 
     /**
      * @param \CakePasskeys\Model\Entity\Passkey $passkey
+     * @param string $userHandle The handle the credential was registered with
      *
      * @return \Webauthn\CredentialRecord
      */
-    private function passkeyToSource(Passkey $passkey): CredentialRecord
+    private function passkeyToSource(Passkey $passkey, string $userHandle): CredentialRecord
     {
         return CredentialRecord::create(
             (string)$passkey->credential_id,
@@ -577,7 +636,7 @@ class WebAuthnService
             // AAGUID is not consulted during assertion check; a fresh UUID is fine.
             Uuid::v4(),
             (string)$passkey->public_key,
-            (string)$passkey->user_id,
+            $userHandle,
             (int)$passkey->sign_count,
         );
     }
