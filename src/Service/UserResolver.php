@@ -19,7 +19,7 @@ class UserResolver
      *
      * @return \CakePasskeys\Contract\PasskeyUserInterface|null
      */
-    public function byId(int|string $id): ?PasskeyUserInterface
+    public function byId(string|int $id): ?PasskeyUserInterface
     {
         $entity = $this->baseQuery()->where([$this->col('id') => $id])->first();
 

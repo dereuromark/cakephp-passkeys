@@ -334,7 +334,7 @@ class WebAuthnService
             ->find()
             ->where(['Passkeys.credential_id' => $publicKeyCredential->rawId])
             ->first();
-        if ($passkey === null) {
+        if (!$passkey instanceof Passkey) {
             throw new WebAuthnException('Unknown passkey credential.');
         }
 
@@ -450,7 +450,7 @@ class WebAuthnService
                 'Passkeys.user_id' => $user->getUserId(),
             ])
             ->first();
-        if ($passkey === null) {
+        if (!$passkey instanceof Passkey) {
             throw new WebAuthnException('Unknown passkey credential for this user.');
         }
 

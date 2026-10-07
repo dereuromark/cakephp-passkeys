@@ -9,9 +9,6 @@ use Cake\Routing\Router;
 use Cake\View\Cell;
 use function Cake\I18n\__d;
 
-/**
- * @extends \Cake\View\Cell<\Cake\View\View>
- */
 class LoginButtonCell extends Cell
 {
     /**
