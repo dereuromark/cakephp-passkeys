@@ -98,8 +98,11 @@ describe('attributes binder', () => {
         };
         window.prompt = () => 'New';
         bind();
-        (document.querySelector('[data-passkey-rename]') as HTMLButtonElement).click();
+        const renameBtn = document.querySelector('[data-passkey-rename]') as HTMLButtonElement;
+        renameBtn.click();
+        expect(renameBtn.disabled).toBe(true);
         await new Promise((r) => setTimeout(r, 0));
+        expect(renameBtn.disabled).toBe(false);
         globalThis.fetch = origFetch;
         window.prompt = origPrompt;
 

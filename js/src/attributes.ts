@@ -89,11 +89,14 @@ export function bind(root: ParentNode = document): void {
             const label = row.querySelector<HTMLElement>('[data-passkey-name]');
             const name = window.prompt(btn.dataset.passkeyPrompt ?? 'New name', label?.textContent?.trim() ?? '');
             if (!name || !name.trim()) return;
+            btn.disabled = true;
             try {
                 const passkey = await rename({ endpoints, id, name: name.trim() });
                 if (label) label.textContent = passkey.name;
             } catch (e) {
                 announceError(e);
+            } finally {
+                btn.disabled = false;
             }
         });
     });
@@ -107,10 +110,12 @@ export function bind(root: ParentNode = document): void {
             if (!row || !id) return;
             const question = btn.dataset.passkeyConfirm;
             if (question && !window.confirm(question)) return;
+            btn.disabled = true;
             try {
                 await remove({ endpoints, id });
                 window.location.reload();
             } catch (e) {
+                btn.disabled = false;
                 announceError(e);
             }
         });
