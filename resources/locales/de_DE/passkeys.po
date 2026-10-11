@@ -44,9 +44,6 @@ msgstr "Passkeys"
 msgid "Passkeys are a faster, phishing-resistant way to sign in. They live on your device and unlock with your fingerprint, face, or PIN."
 msgstr "Passkeys sind eine schnellere, Phishing-resistente Möglichkeit, sich anzumelden. Sie leben auf deinem Gerät und werden mit deinem Fingerabdruck, Gesicht oder deiner PIN entsperrt."
 
-msgid "Reauthentication failed."
-msgstr "Erneute Authentifizierung fehlgeschlagen."
-
 msgid "Rename"
 msgstr "Umbenennen"
 
@@ -55,9 +52,6 @@ msgstr "Nächstes Mal schneller anmelden"
 
 msgid "Sign in with a passkey"
 msgstr "Mit Passkey anmelden"
-
-msgid "Too many attempts — try again later."
-msgstr "Zu viele Versuche — bitte später noch einmal versuchen."
 
 msgid "Type"
 msgstr "Typ"
