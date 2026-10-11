@@ -1,0 +1,94 @@
+# LANGUAGE translation of CakePHP Application
+# Copyright YEAR NAME <EMAIL@ADDRESS>
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"POT-Creation-Date: 2026-10-11 17:21+0000\n"
+"PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
+"Last-Translator: NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+msgid "Login challenge missing or expired."
+msgstr ""
+
+msgid "Unknown passkey credential."
+msgstr ""
+
+msgid "Invalid action name."
+msgstr ""
+
+msgid "Name cannot be empty."
+msgstr ""
+
+msgid "Too many attempts. Try again later."
+msgstr ""
+
+msgid "Sign in with a passkey"
+msgstr ""
+
+msgid "Passkeys"
+msgstr ""
+
+msgid "You haven't added any passkeys yet."
+msgstr ""
+
+msgid "Passkeys are a faster, phishing-resistant way to sign in. They live on your device and unlock with your fingerprint, face, or PIN."
+msgstr ""
+
+msgid "What's a passkey?"
+msgstr ""
+
+msgid "Add a passkey"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Type"
+msgstr ""
+
+msgid "Added"
+msgstr ""
+
+msgid "Last used"
+msgstr ""
+
+msgid "New name for this passkey"
+msgstr ""
+
+msgid "Rename"
+msgstr ""
+
+msgid "Passkey"
+msgstr ""
+
+msgid "never"
+msgstr ""
+
+msgid "Delete this passkey?"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "You've reached your limit of {0} passkeys."
+msgstr ""
+
+msgid "Add another passkey"
+msgstr ""
+
+msgid "Sign in faster next time"
+msgstr ""
+
+msgid "Add a passkey to sign in on this device without your password."
+msgstr ""
+
+msgid "Not now"
+msgstr ""
+

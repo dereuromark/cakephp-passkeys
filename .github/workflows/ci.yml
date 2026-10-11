@@ -44,3 +44,22 @@ jobs:
               run: vendor/bin/phpstan analyse
             - if: matrix.db == 'sqlite'
               run: vendor/bin/phpcs
+    i18n:
+        name: Translation Catalog
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - uses: shivammathur/setup-php@v2
+              with:
+                  php-version: '8.5'
+                  coverage: none
+                  extensions: mbstring, intl
+            - run: composer install --no-progress --no-interaction
+            - name: Check POT is up to date
+              run: composer i18n-check
+            - name: Lint catalogs
+              run: composer i18n-lint
