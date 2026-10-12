@@ -23,7 +23,7 @@
         "web-auth/webauthn-lib": "^5.0"
     },
     "require-dev": {
-        "dereuromark/cakephp-i18n-lint": "^0.1.1",
+        "dereuromark/cakephp-i18n-lint": "^0.1.2",
         "php-collective/code-sniffer": "dev-master",
         "phpunit/phpunit": "^11.0 || ^12.0 || ^13.0",
         "phpstan/phpstan": "^2.0",
@@ -51,7 +51,7 @@
         ],
         "i18n-check": "i18n-lint check",
         "i18n-extract": "i18n-lint extract",
-        "i18n-lint": "i18n-lint lint"
+        "i18n-lint": "i18n-lint lint --fail-on po.missing,po.obsolete"
     },
     "scripts-descriptions": {
         "cs-check": "Run PHP_CodeSniffer",
