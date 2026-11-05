@@ -69,6 +69,6 @@ CI fails when the committed bundle does not match the sources.
 
 ## Release checklist
 
-1. Move the `Unreleased` section of CHANGELOG.md to `[X.Y.Z] - YYYY-MM-DD`.
-2. Tag `X.Y.Z` (no `v` prefix) and publish the GitHub release.
-3. The release workflow publishes the npm package. Packagist picks up the tag.
+1. In a PR: move the `Unreleased` section of CHANGELOG.md to `[X.Y.Z] - YYYY-MM-DD`, run `npm version X.Y.Z --no-git-tag-version` (package.json and package-lock.json), and set `CakePasskeysPlugin::JS_VERSION` to the same version. CI checks that the two versions agree.
+2. Merge it, then tag `X.Y.Z` (no `v` prefix) on that merge and publish the GitHub release. The release workflow refuses a tag that does not match both versions.
+3. The release workflow publishes the npm package (the `NPM_TOKEN` secret needs publish rights for `@dereuromark/cakephp-passkeys`). Packagist picks up the tag.
