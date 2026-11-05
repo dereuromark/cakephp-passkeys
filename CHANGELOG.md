@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `reauth/finish`, `rename` and `delete` are rate-limited too (`passkeys.reauth_finish.<user>` 20 per minute, `passkeys.manage.<user>` 30 per minute for rename and delete together).
+- A full bucket throws `TooManyRequestsException` (still HTTP 429) instead of a plain `HttpException`, now that CakePHP 5.3 is the minimum.
+
 ## [0.1.1] - 2026-11-05
 
 ### Fixed

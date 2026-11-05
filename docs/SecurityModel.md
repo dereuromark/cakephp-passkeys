@@ -60,6 +60,8 @@ The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns
 | `passkeys.register.<user id>` | 10 per minute |
 | `passkeys.register_finish.<user id>` | 10 per minute |
 | `passkeys.reauth.<user id>` | 20 per minute |
+| `passkeys.reauth_finish.<user id>` | 20 per minute |
+| `passkeys.manage.<user id>` (rename and delete together) | 30 per minute |
 
 ### Say who the current user is
 

@@ -12,8 +12,8 @@ use Cake\Event\EventInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Exception\BadRequestException;
 use Cake\Http\Exception\ForbiddenException;
-use Cake\Http\Exception\HttpException;
 use Cake\Http\Exception\NotFoundException;
+use Cake\Http\Exception\TooManyRequestsException;
 use Cake\Http\Exception\UnauthorizedException;
 use Cake\Http\Response;
 use CakePasskeys\Contract\PasskeyUserInterface;
@@ -255,6 +255,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
+        $this->throttle('passkeys.reauth_finish.' . $user->getUserId(), 20, 60);
         $body = (array)$this->getRequest()->getParsedBody();
 
         $action = trim((string)($body['action'] ?? ''));
@@ -294,6 +295,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
+        $this->throttle('passkeys.manage.' . $user->getUserId(), 30, 60);
         $passkey = $this->fetchPasskeyOwnedBy($id, $user->getUserId());
         $body = (array)$this->getRequest()->getParsedBody();
         $newName = trim((string)($body['name'] ?? ''));
@@ -324,6 +326,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post', 'delete']);
         $user = $this->resolveCurrentUser();
+        $this->throttle('passkeys.manage.' . $user->getUserId(), 30, 60);
         $passkey = $this->fetchPasskeyOwnedBy($id, $user->getUserId());
         $this->guard(
             'beforeDelete',
@@ -453,7 +456,7 @@ class PasskeysController extends Controller
      * @param int $max Max attempts in the window.
      * @param int $decay Window length in seconds.
      *
-     * @throws \Cake\Http\Exception\HttpException 429 when the bucket is full.
+     * @throws \Cake\Http\Exception\TooManyRequestsException When the bucket is full.
      *
      * @return void
      */
@@ -461,7 +464,7 @@ class PasskeysController extends Controller
     {
         $limiter = $this->resolveRateLimiter();
         if (!$limiter->hit($key, $max, $decay)) {
-            throw new HttpException(__d('passkeys', 'Too many attempts. Try again later.'), 429);
+            throw new TooManyRequestsException(__d('passkeys', 'Too many attempts. Try again later.'));
         }
     }
 
