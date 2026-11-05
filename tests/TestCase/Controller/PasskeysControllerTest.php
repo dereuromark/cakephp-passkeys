@@ -270,6 +270,9 @@ class PasskeysControllerTest extends TestCase
             'login finish' => ['/passkeys/login/finish'],
             'register start' => ['/passkeys/register/start'],
             'register finish' => ['/passkeys/register/finish'],
+            'reauth finish' => ['/passkeys/reauth/finish'],
+            'rename' => ['/passkeys/rename/1'],
+            'delete' => ['/passkeys/delete/1'],
         ];
     }
 
