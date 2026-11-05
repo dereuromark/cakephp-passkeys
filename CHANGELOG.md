@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-05
+
 ### Added
 
 - `bin/cake passkeys prune --unused-for <days>` deletes passkeys not used for that many days (never-used ones count from creation). Keeps the last passkey of each user unless `--include-last`; `--dry-run` lists without deleting. Each deletion dispatches `CakePasskeys.afterDelete` (#20).
