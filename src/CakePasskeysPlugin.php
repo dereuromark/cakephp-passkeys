@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CakePasskeys;
 
 use Cake\Cache\Cache;
+use Cake\Console\CommandCollection;
 use Cake\Core\BasePlugin;
 use Cake\Core\Configure;
 use Cake\Core\PluginApplicationInterface;
@@ -13,6 +14,8 @@ use Cake\I18n\I18n;
 use Cake\I18n\MessagesFileLoader;
 use Cake\I18n\Package;
 use Cake\Routing\RouteBuilder;
+use CakePasskeys\Command\PasskeysListCommand;
+use CakePasskeys\Command\PasskeysRevokeCommand;
 use InvalidArgumentException;
 
 class CakePasskeysPlugin extends BasePlugin
@@ -102,5 +105,15 @@ class CakePasskeysPlugin extends BasePlugin
             $r->connect('/.well-known/passkey-endpoints', ['controller' => 'Passkeys', 'action' => 'wellKnown'])
                 ->setMethods(['GET']);
         });
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function console(CommandCollection $commands): CommandCollection
+    {
+        return $commands
+            ->add(PasskeysListCommand::defaultName(), PasskeysListCommand::class)
+            ->add(PasskeysRevokeCommand::defaultName(), PasskeysRevokeCommand::class);
     }
 }

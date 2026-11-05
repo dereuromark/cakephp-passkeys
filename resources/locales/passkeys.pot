@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 20:01+0000\n"
+"POT-Creation-Date: 2026-11-05 21:37+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -13,6 +13,51 @@ msgstr ""
 "Content-Type: text/plain; charset=utf-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+
+msgid "List the passkeys of a user."
+msgstr ""
+
+msgid "User id."
+msgstr ""
+
+msgid "No passkeys found for user {0}."
+msgstr ""
+
+msgid "Id"
+msgstr ""
+
+msgid "Name"
+msgstr ""
+
+msgid "Created"
+msgstr ""
+
+msgid "Last used"
+msgstr ""
+
+msgid "Authenticator"
+msgstr ""
+
+msgid "Delete one passkey of a user, or all of them."
+msgstr ""
+
+msgid "Passkey id. Without it, all passkeys of the user are deleted."
+msgstr ""
+
+msgid "Do not ask before deleting all passkeys."
+msgstr ""
+
+msgid "User {0} has no passkey {1}."
+msgstr ""
+
+msgid "Delete all {0} passkeys of user {1}?"
+msgstr ""
+
+msgid "Nothing deleted."
+msgstr ""
+
+msgid "Deleted passkey {0} ({1})."
+msgstr ""
 
 msgid "Login challenge missing or expired."
 msgstr ""
@@ -53,16 +98,10 @@ msgstr ""
 msgid "Add a passkey"
 msgstr ""
 
-msgid "Name"
-msgstr ""
-
 msgid "Type"
 msgstr ""
 
 msgid "Added"
-msgstr ""
-
-msgid "Last used"
 msgstr ""
 
 msgid "New name for this passkey"

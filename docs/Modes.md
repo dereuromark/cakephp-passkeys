@@ -76,4 +76,4 @@ The attribute makes the JavaScript run the ceremony before the form is submitted
 
 ## Recovery
 
-A user who loses every device with a passkey cannot sign in with one. Keep another way in, such as a password or a sign-in link sent by email, and let users delete lost passkeys in the manager afterwards.
+A user who loses every device with a passkey cannot sign in with one. Keep another way in, such as a password or a sign-in link sent by email, and let users delete lost passkeys in the manager afterwards. Support staff can remove them with `bin/cake passkeys revoke` (see the README).

@@ -88,3 +88,42 @@ msgstr "You cannot add a passkey right now."
 
 msgid "You cannot delete this passkey right now."
 msgstr "You cannot delete this passkey right now."
+
+msgid "List the passkeys of a user."
+msgstr "List the passkeys of a user."
+
+msgid "User id."
+msgstr "User id."
+
+msgid "No passkeys found for user {0}."
+msgstr "No passkeys found for user {0}."
+
+msgid "Id"
+msgstr "Id"
+
+msgid "Created"
+msgstr "Created"
+
+msgid "Authenticator"
+msgstr "Authenticator"
+
+msgid "Delete one passkey of a user, or all of them."
+msgstr "Delete one passkey of a user, or all of them."
+
+msgid "Passkey id. Without it, all passkeys of the user are deleted."
+msgstr "Passkey id. Without it, all passkeys of the user are deleted."
+
+msgid "Do not ask before deleting all passkeys."
+msgstr "Do not ask before deleting all passkeys."
+
+msgid "User {0} has no passkey {1}."
+msgstr "User {0} has no passkey {1}."
+
+msgid "Delete all {0} passkeys of user {1}?"
+msgstr "Delete all {0} passkeys of user {1}?"
+
+msgid "Nothing deleted."
+msgstr "Nothing deleted."
+
+msgid "Deleted passkey {0} ({1})."
+msgstr "Deleted passkey {0} ({1})."
