@@ -81,27 +81,8 @@ class PasskeysPruneCommand extends Command
         }
 
         $cutoff = DateTime::now()->subDays((int)$days);
-        /** @var array<\CakePasskeys\Model\Entity\Passkey> $candidates */
-        $candidates = $this->fetchTable('CakePasskeys.Passkeys')->find()
-            ->where(function (QueryExpression $exp) use ($cutoff): QueryExpression {
-                return $exp->or([
-                    'Passkeys.last_used_at <' => $cutoff,
-                    $exp->and([
-                        $exp->isNull('Passkeys.last_used_at'),
-                        'Passkeys.created <' => $cutoff,
-                    ]),
-                ]);
-            })
-            ->orderBy(['Passkeys.user_id' => 'ASC', 'Passkeys.id' => 'ASC'])
-            ->all()
-            ->toArray();
-
-        $kept = 0;
-        if (!$args->getOption('include-last')) {
-            $before = count($candidates);
-            $candidates = $this->spareLastPasskeys($candidates);
-            $kept = $before - count($candidates);
-        }
+        $includeLast = (bool)$args->getOption('include-last');
+        [$candidates, $kept] = $this->findCandidates($cutoff, $includeLast);
 
         if (!$candidates) {
             $io->out(__d('passkeys', 'No passkeys unused for {0} days.', $days));
@@ -147,6 +128,8 @@ class PasskeysPruneCommand extends Command
 
                 return static::CODE_SUCCESS;
             }
+            // A passkey may have been used while the prompt was open.
+            [$candidates, $kept] = $this->findCandidates($cutoff, $includeLast);
         }
 
         $handles = [];
@@ -160,6 +143,36 @@ class PasskeysPruneCommand extends Command
         $this->reportKept($io, $kept);
 
         return static::CODE_SUCCESS;
+    }
+
+    /**
+     * @param \Cake\I18n\DateTime $cutoff
+     * @param bool $includeLast
+     *
+     * @return array{array<\CakePasskeys\Model\Entity\Passkey>, int} Candidates and the number kept as last passkey.
+     */
+    protected function findCandidates(DateTime $cutoff, bool $includeLast): array
+    {
+        /** @var array<\CakePasskeys\Model\Entity\Passkey> $candidates */
+        $candidates = $this->fetchTable('CakePasskeys.Passkeys')->find()
+            ->where(function (QueryExpression $exp) use ($cutoff): QueryExpression {
+                return $exp->or([
+                    'Passkeys.last_used_at <' => $cutoff,
+                    $exp->and([
+                        $exp->isNull('Passkeys.last_used_at'),
+                        'Passkeys.created <' => $cutoff,
+                    ]),
+                ]);
+            })
+            ->orderBy(['Passkeys.user_id' => 'ASC', 'Passkeys.id' => 'ASC'])
+            ->all()
+            ->toArray();
+        if ($includeLast) {
+            return [$candidates, 0];
+        }
+        $remaining = $this->spareLastPasskeys($candidates);
+
+        return [$remaining, count($candidates) - count($remaining)];
     }
 
     /**
