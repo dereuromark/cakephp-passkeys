@@ -31,7 +31,7 @@ class CacheRateLimiter implements RateLimiterInterface
         $engine = Cache::getConfig(static::CACHE_CONFIG)
             ? static::CACHE_CONFIG
             : (string)Configure::read('CakePasskeys.cache', 'default');
-        $window = intdiv(time(), max(1, $decaySeconds));
+        $window = intdiv($this->now(), max(1, $decaySeconds));
         $bucket = 'passkeys_rl_' . sha1($key) . '_' . $window;
 
         try {
@@ -42,9 +42,25 @@ class CacheRateLimiter implements RateLimiterInterface
         }
         if ($count === false) {
             $count = (int)Cache::read($bucket, $engine) + 1;
-            Cache::write($bucket, $count, $engine);
+            // A count that cannot be stored would never fill up; refuse
+            // rather than let every request through.
+            try {
+                if (!Cache::write($bucket, $count, $engine)) {
+                    return false;
+                }
+            } catch (Throwable) {
+                return false;
+            }
         }
 
         return $count <= $maxAttempts;
+    }
+
+    /**
+     * @return int Current Unix time; tests pin it.
+     */
+    protected function now(): int
+    {
+        return time();
     }
 }
