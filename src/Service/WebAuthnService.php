@@ -256,6 +256,8 @@ class WebAuthnService
         $entity->set('aaguid_label', $aaguidLabel);
         $entity->set('transports', $this->joinTransports(array_values($source->transports)));
         $entity->set('sign_count', (int)$source->counter);
+        $entity->set('backup_eligible', $source->backupEligible);
+        $entity->set('backed_up', $source->backupStatus);
         $entity->set('name', $this->normalizeName($passkeyName));
         $entity->set('emoji', $this->normalizeEmoji($emoji));
         $entity->set('last_used_at', null);
@@ -367,6 +369,7 @@ class WebAuthnService
         }
 
         $passkey->set('sign_count', $newCounter);
+        $this->applyBackupState($passkey, $updated);
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
@@ -462,6 +465,7 @@ class WebAuthnService
         }
 
         $passkey->set('sign_count', $newCounter);
+        $this->applyBackupState($passkey, $updated);
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
@@ -657,7 +661,25 @@ class WebAuthnService
             (string)$passkey->public_key,
             $userHandle,
             (int)$passkey->sign_count,
+            backupEligible: $passkey->backup_eligible,
+            backupStatus: $passkey->backed_up,
         );
+    }
+
+    /**
+     * BS changes as a passkey gets synced; BE is only filled in when unknown.
+     *
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
+     * @param \Webauthn\CredentialRecord $record Record the assertion check updated
+     *
+     * @return void
+     */
+    private function applyBackupState(Passkey $passkey, CredentialRecord $record): void
+    {
+        if ($passkey->backup_eligible === null) {
+            $passkey->set('backup_eligible', $record->backupEligible);
+        }
+        $passkey->set('backed_up', $record->backupStatus);
     }
 
     /**

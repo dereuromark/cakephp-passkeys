@@ -334,6 +334,24 @@ class PasskeysControllerTest extends TestCase
     /**
      * @return void
      */
+    public function testRenameResponseCarriesBackupFlags(): void
+    {
+        $this->loginAs(1);
+        $id = $this->seedPasskey(1, 'Phone');
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
+        $table->updateAll(['backup_eligible' => true, 'backed_up' => false], ['id' => $id]);
+
+        $this->post("/passkeys/rename/{$id}", ['name' => 'My phone']);
+        $this->assertResponseOk();
+
+        $passkey = $this->decodeJsonBody()['passkey'];
+        $this->assertTrue($passkey['backupEligible']);
+        $this->assertFalse($passkey['backedUp']);
+    }
+
+    /**
+     * @return void
+     */
     public function testRenameRejectsOtherUsersPasskey(): void
     {
         $this->loginAs(2);

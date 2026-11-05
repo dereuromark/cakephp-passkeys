@@ -35,6 +35,16 @@ class SoftAuthenticator
     /**
      * @var int
      */
+    private const FLAG_BACKUP_ELIGIBLE = 0x08;
+
+    /**
+     * @var int
+     */
+    private const FLAG_BACKED_UP = 0x10;
+
+    /**
+     * @var int
+     */
     private const FLAG_ATTESTED_DATA = 0x40;
 
     private OpenSSLAsymmetricKey $key;
@@ -48,6 +58,8 @@ class SoftAuthenticator
      * @param string $origin Origin reported in the client data
      * @param int $counter Signature counter; 0 behaves like a synced passkey
      * @param string $aaguid AAGUID reported at registration, in UUID form
+     * @param bool $backupEligible BE flag: the credential can be synced
+     * @param bool $backedUp BS flag: the credential is synced right now
      *
      * @throws \RuntimeException
      */
@@ -56,6 +68,8 @@ class SoftAuthenticator
         public string $origin = 'https://localhost',
         public int $counter = 0,
         public string $aaguid = '00000000-0000-0000-0000-000000000000',
+        public bool $backupEligible = false,
+        public bool $backedUp = false,
     ) {
         $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
         if ($key === false) {
@@ -148,8 +162,16 @@ class SoftAuthenticator
      */
     private function authenticatorData(int $extraFlags): string
     {
+        $flags = self::FLAG_USER_PRESENT | self::FLAG_USER_VERIFIED | $extraFlags;
+        if ($this->backupEligible) {
+            $flags |= self::FLAG_BACKUP_ELIGIBLE;
+        }
+        if ($this->backedUp) {
+            $flags |= self::FLAG_BACKED_UP;
+        }
+
         return hash('sha256', $this->rpId, true)
-            . chr((self::FLAG_USER_PRESENT | self::FLAG_USER_VERIFIED | $extraFlags) & 0xFF)
+            . chr($flags & 0xFF)
             . pack('N', $this->counter);
     }
 

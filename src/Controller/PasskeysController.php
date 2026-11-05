@@ -740,6 +740,8 @@ class PasskeysController extends Controller
             'name' => $p->name,
             'emoji' => $p->emoji,
             'aaguidLabel' => $p->aaguid_label,
+            'backupEligible' => $p->backup_eligible,
+            'backedUp' => $p->backed_up,
             'createdAt' => $p->created->format(DATE_ATOM),
             'lastUsedAt' => $p->last_used_at?->format(DATE_ATOM),
         ];

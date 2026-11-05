@@ -77,6 +77,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `rateLimiter` | `null` | Class or instance implementing `RateLimiterInterface`. `null` uses the built-in cache-backed limiter, `false` turns limiting off. |
 | `docsUrl` | `null` | Link shown in the empty state of the Manager cell. |
 | `nudge.enabled` | `true` | Show the RegisterNudge cell to signed-in users without a passkey. |
+| `nudge.deviceBoundOnly` | `true` | Also show it, with copy suggesting a second passkey, when every passkey of the user is known to be bound to one device. |
 | `nudge.redisplayAfterDays` | `14` | Days until a dismissed nudge shows again. |
 | `signals` | `true` | Keep the browser's passkey list in sync through the WebAuthn Signal API. See [Keeping passkey lists in sync](#keeping-passkey-lists-in-sync). |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
@@ -111,6 +112,16 @@ $this->addHelper('CakePasskeys.Passkeys');
 ```
 
 Shows the user's passkeys with rename and delete, and an "Add a passkey" button until the limit is reached.
+
+Each passkey is labeled "Synced" when the authenticator reports it as backed up (iCloud Keychain, Google Password Manager and the like), or "This device only" when it cannot be synced at all. Such a passkey is lost with the device. Passkeys registered before the plugin stored these flags show no label until their next sign-in.
+
+To nudge users who have no passkey yet, or whose passkeys are all bound to one device, render the RegisterNudge cell, for example in the layout:
+
+```php
+<?= $this->cell('CakePasskeys.RegisterNudge') ?>
+```
+
+A dismissed nudge stays hidden for `nudge.redisplayAfterDays`.
 
 ### 3. Offer the sign-in
 
@@ -322,6 +333,8 @@ If your app stored passkeys before it used this plugin, the authenticators know 
 New passkeys then get the same handle. Existing EdDSA passkeys (common on hardware keys) sign in as long as PHP has the sodium extension; new passkeys are created with ES256 or RS256.
 
 If your app already has a `passkeys` table, do not run the plugin's migration. Add any column the plugin's `config/Migrations/*_CreatePasskeys.php` has and yours lacks in a migration of your own (keep the binary types for `credential_id`, `public_key` and `aaguid`), then record the plugin migration as done with `bin/cake migrations mark_migrated -p CakePasskeys`.
+
+That includes the two nullable boolean columns `backup_eligible` and `backed_up` from `*_AddBackupStateToPasskeys.php`. If you marked the plugin migrations as done before that migration existed, add the columns yourself and mark it as well, or run `bin/cake migrations migrate -p CakePasskeys`, which adds them to your `passkeys` table.
 
 ## Recovery
 

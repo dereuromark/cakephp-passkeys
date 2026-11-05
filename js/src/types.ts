@@ -36,6 +36,10 @@ export interface PasskeyResult {
     name: string;
     emoji: string | null;
     aaguidLabel: string | null;
+    /** Whether the passkey can sync to other devices; null when not known yet. */
+    backupEligible: boolean | null;
+    /** Whether the passkey is synced right now; null when not known yet. */
+    backedUp: boolean | null;
     createdAt: string;
     lastUsedAt: string | null;
 }

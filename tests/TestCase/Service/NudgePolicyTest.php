@@ -27,6 +27,38 @@ class NudgePolicyTest extends TestCase
         $this->assertFalse((new NudgePolicy())->shouldShow(1));
     }
 
+    public function testShownWhenEveryPasskeyIsDeviceBound(): void
+    {
+        $policy = new NudgePolicy();
+
+        $this->assertTrue($policy->shouldShow(2, 2));
+        $this->assertSame(NudgePolicy::REASON_DEVICE_BOUND_ONLY, $policy->reason(2, 2));
+        $this->assertSame(NudgePolicy::REASON_NO_PASSKEY, $policy->reason(0));
+    }
+
+    public function testHiddenWhenOnePasskeyMaySync(): void
+    {
+        $this->assertSame(NudgePolicy::REASON_DEVICE_BOUND_ONLY, (new NudgePolicy())->reason(2, 2));
+        $this->assertNull((new NudgePolicy())->reason(2, 1));
+    }
+
+    public function testDeviceBoundNudgeCanBeTurnedOff(): void
+    {
+        $this->assertSame(NudgePolicy::REASON_DEVICE_BOUND_ONLY, (new NudgePolicy())->reason(1, 1));
+
+        Configure::write('CakePasskeys.nudge.deviceBoundOnly', false);
+        $this->assertNull((new NudgePolicy())->reason(1, 1));
+        $this->assertSame(NudgePolicy::REASON_NO_PASSKEY, (new NudgePolicy())->reason(0));
+    }
+
+    public function testDeviceBoundNudgeHiddenWhenNudgeDisabled(): void
+    {
+        $this->assertSame(NudgePolicy::REASON_DEVICE_BOUND_ONLY, (new NudgePolicy())->reason(1, 1));
+
+        Configure::write('CakePasskeys.nudge.enabled', false);
+        $this->assertNull((new NudgePolicy())->reason(1, 1));
+    }
+
     public function testHiddenWhenNudgeDisabled(): void
     {
         Configure::write('CakePasskeys.nudge.enabled', false);

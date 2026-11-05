@@ -119,6 +119,12 @@ msgstr ""
 msgid "Passkey"
 msgstr ""
 
+msgid "Synced"
+msgstr ""
+
+msgid "This device only"
+msgstr ""
+
 msgid "never"
 msgstr ""
 
@@ -132,6 +138,12 @@ msgid "You've reached your limit of {0} passkeys."
 msgstr ""
 
 msgid "Add another passkey"
+msgstr ""
+
+msgid "Keep access if you lose this device"
+msgstr ""
+
+msgid "Your passkeys only work on the device they were created on. Add a second passkey, for example on your phone or in a password manager, so you can still sign in without it."
 msgstr ""
 
 msgid "Sign in faster next time"

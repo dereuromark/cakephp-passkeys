@@ -38,6 +38,27 @@ class CreatePasskeysTest extends TestCase
         $this->assertContains('last_used_at', $cols);
     }
 
+    public function testBackupStateColumnsAreNullableBooleans(): void
+    {
+        $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
+        $migrations->rollback(['target' => 0]);
+        $migrations->migrate();
+
+        /** @var \Cake\Database\Connection $connection */
+        $connection = ConnectionManager::get('test');
+        $schema = $connection->getSchemaCollection()->describe('passkeys');
+        foreach (['backup_eligible', 'backed_up'] as $column) {
+            $this->assertSame('boolean', $schema->getColumnType($column), $column);
+            $this->assertTrue($schema->isNullable($column), $column);
+        }
+
+        $migrations->rollback(['target' => 20260512000000]);
+        $cols = $connection->getSchemaCollection()->describe('passkeys')->columns();
+        $this->assertNotContains('backup_eligible', $cols);
+        $this->assertNotContains('backed_up', $cols);
+        $this->assertContains('transports', $cols);
+    }
+
     /**
      * An application with UUID primary keys sets the type before migrating.
      *

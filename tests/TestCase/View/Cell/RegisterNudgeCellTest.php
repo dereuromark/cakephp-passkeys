@@ -76,6 +76,67 @@ class RegisterNudgeCellTest extends TestCase
     }
 
     /**
+     * @return void
+     */
+    public function testDeviceBoundOnlyShowsSecondPasskeyCopy(): void
+    {
+        $this->seedPasskey(1, ['backup_eligible' => false]);
+        $html = $this->renderCell(userId: 1, loginCount: 5);
+        $this->assertStringContainsString('data-passkey-nudge-reason="deviceBoundOnly"', $html);
+        $this->assertStringContainsString('Add another passkey', $html);
+        $this->assertStringContainsString('data-passkey-nudge-dismiss', $html);
+    }
+
+    /**
+     * @return void
+     */
+    public function testNoPasskeyShowsDefaultCopy(): void
+    {
+        $html = $this->renderCell(userId: 1, loginCount: 5);
+        $this->assertStringContainsString('data-passkey-nudge-reason="noPasskey"', $html);
+        $this->assertStringContainsString('Sign in faster next time', $html);
+    }
+
+    /**
+     * @return void
+     */
+    public function testHiddenOnceOnePasskeyMaySync(): void
+    {
+        $this->seedPasskey(1, ['backup_eligible' => false]);
+        $this->assertStringContainsString('deviceBoundOnly', $this->renderCell(userId: 1, loginCount: 5));
+
+        $this->seedPasskey(1, ['backup_eligible' => true, 'backed_up' => true]);
+        $this->assertSame('', trim($this->renderCell(userId: 1, loginCount: 5)));
+    }
+
+    /**
+     * Rows from before the backup flags were stored are not counted as device-bound.
+     *
+     * @return void
+     */
+    public function testUnknownBackupStateIsNotDeviceBound(): void
+    {
+        $this->seedPasskey(1, ['backup_eligible' => false]);
+        $this->seedPasskey(1, ['backup_eligible' => null]);
+        $this->assertSame('', trim($this->renderCell(userId: 1, loginCount: 5)));
+
+        $this->getTableLocator()->get('CakePasskeys.Passkeys')->updateAll(['backup_eligible' => false], []);
+        $this->assertStringContainsString('deviceBoundOnly', $this->renderCell(userId: 1, loginCount: 5));
+    }
+
+    /**
+     * @return void
+     */
+    public function testDeviceBoundNudgeFollowsSwitch(): void
+    {
+        $this->seedPasskey(1, ['backup_eligible' => false]);
+        $this->assertStringContainsString('deviceBoundOnly', $this->renderCell(userId: 1, loginCount: 5));
+
+        Configure::write('CakePasskeys.nudge.deviceBoundOnly', false);
+        $this->assertSame('', trim($this->renderCell(userId: 1, loginCount: 5)));
+    }
+
+    /**
      * @param int|null $userId
      * @param int $loginCount
      *
@@ -107,13 +168,14 @@ class RegisterNudgeCellTest extends TestCase
 
     /**
      * @param int $userId
+     * @param array<string, mixed> $overrides
      *
      * @return void
      */
-    private function seedPasskey(int $userId): void
+    private function seedPasskey(int $userId, array $overrides = []): void
     {
         $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
-        $entity = $table->newEntity([
+        $entity = $table->newEntity($overrides + [
             'user_id' => $userId,
             'credential_id' => random_bytes(16),
             'public_key' => random_bytes(77),

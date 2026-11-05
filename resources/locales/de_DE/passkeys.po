@@ -158,3 +158,14 @@ msgstr "Passkeys verwalten"
 
 msgid "Manage your passkeys: {0}"
 msgstr "Passkeys verwalten: {0}"
+msgid "Synced"
+msgstr "Synchronisiert"
+
+msgid "This device only"
+msgstr "Nur auf diesem Gerät"
+
+msgid "Keep access if you lose this device"
+msgstr "Behalte den Zugang, falls du dieses Gerät verlierst"
+
+msgid "Your passkeys only work on the device they were created on. Add a second passkey, for example on your phone or in a password manager, so you can still sign in without it."
+msgstr "Deine Passkeys funktionieren nur auf dem Gerät, auf dem sie erstellt wurden. Füge einen zweiten Passkey hinzu, zum Beispiel auf deinem Handy oder in einem Passwort-Manager, damit du dich auch ohne dieses Gerät anmelden kannst."
