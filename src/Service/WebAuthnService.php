@@ -53,6 +53,7 @@ use function Cake\I18n\__d;
  *  - startRegistration / finishRegistration
  *  - startLogin / finishLogin (discoverable lookup)
  *  - startReauth / finishReauth (UV=required, narrowed to one user)
+ *  - startSecondFactor / finishSecondFactor (narrowed to the pending user)
  *
  * The challenge bytes never leave the server: the start* methods stash the
  * full request/creation options in the {@see ChallengeStore} keyed by an
@@ -386,6 +387,76 @@ class WebAuthnService
      */
     public function startReauth(PasskeyUserInterface $user): array
     {
+        return $this->startUserAssertion(
+            $user,
+            'reauth',
+            PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED,
+        );
+    }
+
+    /**
+     * Verifies a reauth assertion. Returns true on success, throws otherwise.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param array<string, mixed> $clientResponse
+     *
+     * @return bool
+     */
+    public function finishReauth(PasskeyUserInterface $user, array $clientResponse): bool
+    {
+        $this->finishUserAssertion($user, $clientResponse, 'reauth', 'Reauth');
+
+        return true;
+    }
+
+    /**
+     * Builds the challenge for a passkey used as the second factor of a user
+     * who already passed the host's first factor. Narrowed to that user's
+     * credentials; user verification follows `ceremony.userVerification`.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     *
+     * @throws \CakePasskeys\Service\WebAuthnException When the user has no passkey
+     *
+     * @return array<string, mixed>
+     */
+    public function startSecondFactor(PasskeyUserInterface $user): array
+    {
+        if (!$this->passkeysFor($user)) {
+            throw new WebAuthnException('No passkey registered for this user.');
+        }
+        $ceremony = (array)Configure::read('CakePasskeys.ceremony', []);
+
+        return $this->startUserAssertion(
+            $user,
+            'second_factor',
+            (string)($ceremony['userVerification']
+                ?? PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED),
+        );
+    }
+
+    /**
+     * Verifies a second-factor assertion and returns the passkey used.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user The pending user
+     * @param array<string, mixed> $clientResponse
+     *
+     * @return \CakePasskeys\Model\Entity\Passkey
+     */
+    public function finishSecondFactor(PasskeyUserInterface $user, array $clientResponse): Passkey
+    {
+        return $this->finishUserAssertion($user, $clientResponse, 'second_factor', 'Second-factor');
+    }
+
+    /**
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param string $kind Challenge kind; a finish only accepts its own kind.
+     * @param string $userVerification
+     *
+     * @return array<string, mixed>
+     */
+    private function startUserAssertion(PasskeyUserInterface $user, string $kind, string $userVerification): array
+    {
         $challenge = random_bytes(32);
         $ceremony = (array)Configure::read('CakePasskeys.ceremony', []);
 
@@ -401,12 +472,12 @@ class WebAuthnService
             $challenge,
             rpId: $this->rpId,
             allowCredentials: $allowCredentials,
-            userVerification: PublicKeyCredentialRequestOptions::USER_VERIFICATION_REQUIREMENT_REQUIRED,
+            userVerification: $userVerification,
             timeout: max(1, (int)($ceremony['timeout'] ?? 60_000)),
         );
 
         $challengeKey = $this->challengeStore->put([
-            'kind' => 'reauth',
+            'kind' => $kind,
             'user_id' => (string)$user->getUserId(),
             'options' => $this->serializer->serialize($opts, 'json'),
         ]);
@@ -418,27 +489,31 @@ class WebAuthnService
     }
 
     /**
-     * Verifies a reauth assertion. Returns true on success, throws otherwise.
-     *
      * @param \CakePasskeys\Contract\PasskeyUserInterface $user
      * @param array<string, mixed> $clientResponse
+     * @param string $kind Challenge kind the start step stored.
+     * @param string $label Ceremony name for error messages.
      *
      * @throws \CakePasskeys\Service\WebAuthnException
      *
-     * @return bool
+     * @return \CakePasskeys\Model\Entity\Passkey
      */
-    public function finishReauth(PasskeyUserInterface $user, array $clientResponse): bool
-    {
+    private function finishUserAssertion(
+        PasskeyUserInterface $user,
+        array $clientResponse,
+        string $kind,
+        string $label,
+    ): Passkey {
         $key = isset($clientResponse['challengeKey']) ? (string)$clientResponse['challengeKey'] : '';
         if ($key === '') {
-            throw new WebAuthnException('Reauth challenge key missing.');
+            throw new WebAuthnException($label . ' challenge key missing.');
         }
         $stash = $this->challengeStore->consume($key);
-        if ($stash === null || !isset($stash['options']) || (string)($stash['kind'] ?? '') !== 'reauth') {
-            throw new WebAuthnException('Reauth challenge missing or expired.');
+        if ($stash === null || !isset($stash['options']) || (string)($stash['kind'] ?? '') !== $kind) {
+            throw new WebAuthnException($label . ' challenge missing or expired.');
         }
         if ((string)($stash['user_id'] ?? '') !== (string)$user->getUserId()) {
-            throw new WebAuthnException('Reauth challenge does not belong to this user.');
+            throw new WebAuthnException($label . ' challenge does not belong to this user.');
         }
 
         $credentialJson = $this->encodeBrowserResponse($clientResponse['response'] ?? $clientResponse);
@@ -469,7 +544,7 @@ class WebAuthnService
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
-        return true;
+        return $passkey;
     }
 
     /**

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { register, authenticate, isSupported } from '../src/core';
+import { register, authenticate, isSupported, secondFactor } from '../src/core';
 import { PasskeyServerError, PasskeyAbortedError, PasskeyNotSupportedError } from '../src/errors';
 
 const mockEndpoints = {
@@ -151,5 +151,83 @@ describe('core', () => {
         const result = await authenticate({ endpoints: mockEndpoints });
         expect(result.redirectTo).toBe('/dashboard');
         expect(result.mfaSatisfied).toBe(true);
+    });
+
+    const secondFactorEndpoints = {
+        ...mockEndpoints,
+        secondFactorStart: '/passkeys/second-factor/start',
+        secondFactorFinish: '/passkeys/second-factor/finish',
+        csrfToken: 'tok',
+    };
+
+    it('secondFactor passes allowCredentials to credentials.get and posts the assertion', async () => {
+        (globalThis.fetch as any)
+            .mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({
+                    challenge: 'YWJj',
+                    allowCredentials: [{ type: 'public-key', id: 'AQID' }],
+                    challengeKey: 'k2',
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: () => Promise.resolve({ redirectTo: '/home', mfaSatisfied: true, userId: 1 }),
+            });
+        (navigator.credentials.get as any).mockResolvedValueOnce({
+            id: 'cred-id', rawId: new ArrayBuffer(8), type: 'public-key',
+            response: {
+                authenticatorData: new ArrayBuffer(8),
+                clientDataJSON: new ArrayBuffer(8),
+                signature: new ArrayBuffer(8),
+                userHandle: null,
+            },
+        });
+
+        const result = await secondFactor({ endpoints: secondFactorEndpoints });
+
+        expect(result.redirectTo).toBe('/home');
+        const getArg = (navigator.credentials.get as any).mock.calls[0][0];
+        expect(getArg.mediation).toBeUndefined();
+        expect(Array.from(getArg.publicKey.allowCredentials[0].id)).toEqual([1, 2, 3]);
+        const [startUrl, startInit] = (globalThis.fetch as any).mock.calls[0];
+        expect(startUrl).toBe('/passkeys/second-factor/start');
+        expect(startInit.headers['X-CSRF-Token']).toBe('tok');
+        const [finishUrl, finishInit] = (globalThis.fetch as any).mock.calls[1];
+        expect(finishUrl).toBe('/passkeys/second-factor/finish');
+        const body = JSON.parse(finishInit.body);
+        expect(body.challengeKey).toBe('k2');
+        expect(body.response.id).toBe('cred-id');
+    });
+
+    it('secondFactor maps a cancelled prompt to PasskeyAbortedError', async () => {
+        (globalThis.fetch as any).mockResolvedValueOnce({
+            ok: true,
+            json: () => Promise.resolve({ challenge: 'YWJj', allowCredentials: [], challengeKey: 'k' }),
+        });
+        (navigator.credentials.get as any).mockRejectedValueOnce(new DOMException('cancelled', 'NotAllowedError'));
+        await expect(secondFactor({ endpoints: secondFactorEndpoints }))
+            .rejects.toBeInstanceOf(PasskeyAbortedError);
+    });
+
+    it('secondFactor surfaces a 401 without a pending user as PasskeyServerError', async () => {
+        (globalThis.fetch as any).mockResolvedValueOnce({
+            ok: false, status: 401, text: () => Promise.resolve('{"message":"Unauthorized"}'),
+        });
+        const err = await secondFactor({ endpoints: secondFactorEndpoints }).catch((e) => e);
+        expect(err).toBeInstanceOf(PasskeyServerError);
+        expect(err.status).toBe(401);
+    });
+
+    it('secondFactor refuses when the endpoints are missing', async () => {
+        await expect(secondFactor({ endpoints: mockEndpoints }))
+            .rejects.toBeInstanceOf(PasskeyServerError);
+        expect(globalThis.fetch).not.toHaveBeenCalled();
+    });
+
+    it('secondFactor throws PasskeyNotSupportedError without WebAuthn', async () => {
+        delete (globalThis as any).PublicKeyCredential;
+        await expect(secondFactor({ endpoints: secondFactorEndpoints }))
+            .rejects.toBeInstanceOf(PasskeyNotSupportedError);
     });
 });

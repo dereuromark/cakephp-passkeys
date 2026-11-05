@@ -180,6 +180,11 @@ export interface ConditionalOpts {
     csrfToken?: string;
 }
 
+export interface SecondFactorOpts {
+    endpoints: Endpoints;
+    csrfToken?: string;
+}
+
 export interface ReauthOpts {
     endpoints: Endpoints;
     action?: string;
@@ -283,6 +288,35 @@ export async function reauth(opts: ReauthOpts): Promise<{ ok: true; until: strin
         challengeKey: options.challengeKey,
         action: opts.action,
     }) as { ok: true; until: string };
+}
+
+/**
+ * Passkey as the second factor for the user who passed the password step.
+ * Resolves with the sign-in result; navigating to `redirectTo` is up to the caller.
+ */
+export async function secondFactor(opts: SecondFactorOpts): Promise<AuthResult> {
+    if (!isSupported()) notSupported();
+    const { secondFactorStart, secondFactorFinish } = opts.endpoints;
+    if (!secondFactorStart || !secondFactorFinish) {
+        throw new PasskeyServerError('Endpoint is not configured.', 0);
+    }
+
+    const options = await postJson(secondFactorStart, token(opts));
+    const publicKey = reviveGetOptions(options);
+
+    let credential: PublicKeyCredential;
+    try {
+        const got = await navigator.credentials.get({ publicKey });
+        if (!got) throw new PasskeyAbortedError('Passkey sign-in cancelled.');
+        credential = got as PublicKeyCredential;
+    } catch (e) {
+        throw classify(e);
+    }
+
+    return await postJson(secondFactorFinish, token(opts), {
+        response: serializeAssertion(credential),
+        challengeKey: options.challengeKey,
+    }) as AuthResult;
 }
 
 // --- management -----------------------------------------------------------

@@ -35,5 +35,6 @@ return [
         'wellKnown' => ['enroll' => null, 'manage' => null],
         'notify' => ['onRegister' => false, 'emailProfile' => 'default', 'manageUrl' => null],
         'signals' => true,
+        'secondFactor' => ['pendingUserKey' => null, 'pendingUserResolver' => null, 'redirect' => null],
     ],
 ];

@@ -62,6 +62,8 @@ The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns
 | `passkeys.reauth.<user id>` | 20 per minute |
 | `passkeys.reauth_finish.<user id>` | 20 per minute |
 | `passkeys.manage.<user id>` (rename and delete together) | 30 per minute |
+| `passkeys.second_factor.<pending user id>` | 10 per minute |
+| `passkeys.second_factor_finish.<pending user id>` | 10 per minute |
 
 ### Authenticator allowlist
 
@@ -85,6 +87,12 @@ The plugin does not verify attestation statements. It registers only the `none` 
 ### Tell users about new passkeys
 
 Anyone holding a signed-in session can add a passkey and keep access after the session ends. Asking for a recent sign-in in `beforeRegister` makes that harder; `notify.onRegister` mails the owner after every registration, so it does not go unnoticed. The mail is best effort: a failure is logged and does not undo the registration.
+
+### Passkey as a second factor
+
+The second-factor endpoints trust the pending user id your password step records. Write `secondFactor.pendingUserKey` only after the password was verified, never from request data, and clear it when the user starts over or signs out. A `pendingUserResolver` must answer the same way: the user who passed the first factor in this session, or null.
+
+The plugin binds each second-factor challenge to the session that started it and to the pending user: `finish` refuses a challenge from another session, a challenge started for another user, a login or reauth challenge, and a passkey of anyone but the pending user. Counter and signature are checked as for a sign-in, and user verification follows `ceremony.userVerification`.
 
 ### Say who the current user is
 

@@ -102,7 +102,7 @@ class PasskeysHelper extends Helper
         }
 
         $config = [];
-        foreach (['registerStart', 'registerFinish', 'loginStart', 'loginFinish', 'reauthStart', 'reauthFinish'] as $action) {
+        foreach (['registerStart', 'registerFinish', 'loginStart', 'loginFinish', 'reauthStart', 'reauthFinish', 'secondFactorStart', 'secondFactorFinish'] as $action) {
             $config[$action] = Router::url(['plugin' => 'CakePasskeys', 'controller' => 'Passkeys', 'action' => $action]);
         }
         foreach (['rename', 'delete'] as $action) {

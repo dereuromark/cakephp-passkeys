@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `bin/cake passkeys prune --unused-for <days>` deletes passkeys not used for that many days (never-used ones count from creation). Keeps the last passkey of each user unless `--include-last`; `--dry-run` lists without deleting. Each deletion dispatches `CakePasskeys.afterDelete` (#20).
+- Passkey as a second factor after a password: `second-factor/start` and `second-factor/finish` accept only the passkeys of the user your password step recorded (`secondFactor.pendingUserKey` or `secondFactor.pendingUserResolver`), complete the sign-in and dispatch `CakePasskeys.afterSecondFactor`. JS: `secondFactor()` and the `data-passkey-second-factor` button (#19).
 
 ## [0.1.2] - 2026-11-05
 

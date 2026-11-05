@@ -53,4 +53,19 @@ describe('stimulus PasskeyController', () => {
         expect(preventDefault).toHaveBeenCalled();
         expect((globalThis.fetch as any).mock.calls[0][0]).toBe(endpoints.loginStart);
     });
+
+    it('secondFactor runs the ceremony against the second-factor endpoints', async () => {
+        (globalThis as any).PublicKeyCredential = function () {};
+        const c = Object.create(PasskeyController.prototype) as PasskeyController;
+        Object.defineProperty(c, 'endpointsValue', {
+            value: { ...endpoints, secondFactorStart: '/p/second-factor/start', secondFactorFinish: '/p/second-factor/finish' },
+        });
+        (globalThis.fetch as any).mockResolvedValueOnce({
+            ok: false, status: 401, text: () => Promise.resolve(''),
+        });
+        await expect(
+            c.secondFactor({ preventDefault: vi.fn() } as unknown as Event),
+        ).rejects.toThrow();
+        expect((globalThis.fetch as any).mock.calls[0][0]).toBe('/p/second-factor/start');
+    });
 });

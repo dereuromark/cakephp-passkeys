@@ -1,6 +1,6 @@
 # Events
 
-The plugin dispatches six events on the global event manager: four `after*` events and the two guards `beforeRegister` and `beforeDelete`.
+The plugin dispatches seven events on the global event manager: five `after*` events and the two guards `beforeRegister` and `beforeDelete`.
 
 ## Events
 
@@ -8,6 +8,7 @@ The plugin dispatches six events on the global event manager: four `after*` even
 | --- | --- | --- |
 | `CakePasskeys.afterRegister` | none | `registerFinish` |
 | `CakePasskeys.afterLogin` | none | `loginFinish` |
+| `CakePasskeys.afterSecondFactor` | none | `secondFactorFinish` |
 | `CakePasskeys.afterRename` | `['old' => $old, 'new' => $new]` | `rename` |
 | `CakePasskeys.afterDelete` | none | `delete`, `bin/cake passkeys revoke`, `bin/cake passkeys prune` |
 | `CakePasskeys.beforeRegister` | `['user' => PasskeyUserInterface]`, no payload | `registerStart`, `registerFinish` |
@@ -15,7 +16,7 @@ The plugin dispatches six events on the global event manager: four `after*` even
 
 A listener that stops `beforeRegister` or `beforeDelete` refuses the action with a 403. A string set as result becomes the error message.
 
-An `afterLogin` listener can set an array as result; its keys are added to the JSON answer of `login/finish` (the plugin's own keys win). Use it to hand an API token to a client that does not run on cookies.
+An `afterLogin` listener can set an array as result; its keys are added to the JSON answer of `login/finish` (the plugin's own keys win). Use it to hand an API token to a client that does not run on cookies. `afterSecondFactor` works the same way for `second-factor/finish`. It fires after the identity is persisted; with a `secondFactor.pendingUserResolver`, clear your own pending state here.
 
 The subject of every event is the plugin's `PasskeysController`, so a listener can reach the request and the session through `$event->getSubject()->getRequest()`. The exception is `afterDelete` fired by the `passkeys revoke` and `passkeys prune` commands: there the subject is the `PasskeysRevokeCommand` or `PasskeysPruneCommand`, and the user handle is an empty string when the user row no longer exists. The payload is a `CakePasskeys\Event\PasskeyEvent` under `$event->getData('event')`.
 

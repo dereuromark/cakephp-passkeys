@@ -2,7 +2,7 @@
  * Alpine.js adapter — registers `x-passkey-*` directives.
  *
  * Side-effect module: importing it once (e.g. via `import '...passkeys/alpine'`
- * after Alpine.start()) wires up three CSP-strict directives that the host
+ * after Alpine.start()) wires up four CSP-strict directives that the host
  * page applies via plain HTML attributes. Each directive sets the matching
  * data-* attribute so the existing attributes.ts binder can take over —
  * no logic is duplicated.
@@ -24,6 +24,10 @@ if (typeof window !== 'undefined' && window.Alpine) {
     });
     window.Alpine.directive('passkey-authenticate', (el: HTMLElement) => {
         el.setAttribute('data-passkey-authenticate', '');
+        bind(el.parentElement ?? document);
+    });
+    window.Alpine.directive('passkey-second-factor', (el: HTMLElement) => {
+        el.setAttribute('data-passkey-second-factor', '');
         bind(el.parentElement ?? document);
     });
     window.Alpine.directive('passkey-conditional', (el: HTMLElement) => {

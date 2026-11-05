@@ -8,12 +8,13 @@
  */
 
 import { useCallback, useState } from 'react';
-import { register, authenticate } from './core';
+import { register, authenticate, secondFactor } from './core';
 import type { Endpoints, PasskeyResult, AuthResult } from './types';
 
 export interface UsePasskey {
     register: (opts: { name: string; emoji?: string; csrfToken?: string }) => Promise<PasskeyResult>;
     authenticate: () => Promise<AuthResult>;
+    secondFactor: () => Promise<AuthResult>;
     isLoading: boolean;
     error: Error | null;
 }
@@ -48,5 +49,18 @@ export function usePasskey(endpoints: Endpoints): UsePasskey {
         }
     }, [endpoints]);
 
-    return { register: doRegister, authenticate: doAuthenticate, isLoading, error };
+    const doSecondFactor = useCallback(async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            return await secondFactor({ endpoints });
+        } catch (e) {
+            setError(e as Error);
+            throw e;
+        } finally {
+            setLoading(false);
+        }
+    }, [endpoints]);
+
+    return { register: doRegister, authenticate: doAuthenticate, secondFactor: doSecondFactor, isLoading, error };
 }

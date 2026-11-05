@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { bind } from '../src/attributes';
 
 const endpoints = {
@@ -40,6 +40,73 @@ describe('attributes binder', () => {
         bind();
         const btn = document.querySelector('[data-passkey-authenticate]') as HTMLButtonElement;
         expect(btn.hidden).toBe(true);
+    });
+
+    it('shows the second-factor button only with WebAuthn support', () => {
+        document.body.innerHTML += '<button data-passkey-second-factor hidden>Use a passkey</button>';
+        bind();
+        const btn = document.querySelector('[data-passkey-second-factor]') as HTMLButtonElement;
+        expect(btn.hidden).toBe(false);
+        expect(btn.dataset.passkeyBound).toBe('1');
+    });
+
+    it('keeps the second-factor button hidden without WebAuthn support', () => {
+        document.body.innerHTML += '<button data-passkey-second-factor hidden>Use a passkey</button>';
+        delete (globalThis as any).PublicKeyCredential;
+        bind();
+        expect((document.querySelector('[data-passkey-second-factor]') as HTMLButtonElement).hidden).toBe(true);
+    });
+
+    it('runs the second factor on click and navigates to redirectTo', async () => {
+        document.body.innerHTML = `
+            <meta name="passkeys-endpoints" content='${JSON.stringify({
+                ...endpoints,
+                secondFactorStart: '/p/second-factor/start',
+                secondFactorFinish: '/p/second-factor/finish',
+            })}'>
+            <button data-passkey-second-factor hidden>Use a passkey</button>
+        `;
+        const urls: string[] = [];
+        const origFetch = globalThis.fetch;
+        const origNavigator = globalThis.navigator;
+        const origLocation = window.location;
+        const assign = vi.fn();
+        Object.defineProperty(window, 'location', { value: { assign }, writable: true, configurable: true });
+        Object.defineProperty(globalThis, 'navigator', {
+            value: {
+                credentials: {
+                    get: vi.fn().mockResolvedValue({
+                        id: 'c', rawId: new ArrayBuffer(4), type: 'public-key',
+                        response: {
+                            authenticatorData: new ArrayBuffer(4),
+                            clientDataJSON: new ArrayBuffer(4),
+                            signature: new ArrayBuffer(4),
+                            userHandle: null,
+                        },
+                    }),
+                },
+            },
+            writable: true,
+            configurable: true,
+        });
+        (globalThis as any).fetch = async (url: string) => {
+            urls.push(url);
+            const json = url.endsWith('/start')
+                ? { challenge: 'YWJj', allowCredentials: [], challengeKey: 'k' }
+                : { redirectTo: '/after-2fa', mfaSatisfied: true, userId: 1 };
+            return { ok: true, json: async () => json };
+        };
+        try {
+            bind();
+            (document.querySelector('[data-passkey-second-factor]') as HTMLButtonElement).click();
+            await new Promise((r) => setTimeout(r, 0));
+            expect(urls).toEqual(['/p/second-factor/start', '/p/second-factor/finish']);
+            expect(assign).toHaveBeenCalledWith('/after-2fa');
+        } finally {
+            globalThis.fetch = origFetch;
+            Object.defineProperty(globalThis, 'navigator', { value: origNavigator, writable: true, configurable: true });
+            Object.defineProperty(window, 'location', { value: origLocation, writable: true, configurable: true });
+        }
     });
 
     it('marks register button as bound to prevent double-binding', () => {

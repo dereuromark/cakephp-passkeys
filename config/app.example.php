@@ -93,6 +93,22 @@ return [
             'emailHint' => false,
         ],
 
+        'secondFactor' => [
+            // Passkey as the second factor after the host's password step.
+            // Session key the host writes the pending user id to once the
+            // password is verified. The plugin removes it after a passkey
+            // second factor succeeded. Null (with no resolver) keeps the
+            // second-factor endpoints off.
+            'pendingUserKey' => null,
+            // Closure(ServerRequest $request): string|int|null returning the
+            // pending user id. Wins over pendingUserKey; the host then clears
+            // its own pending state, e.g. in an afterSecondFactor listener.
+            'pendingUserResolver' => null,
+            // URL the JavaScript navigates to after the second factor. Null
+            // falls back to afterLoginRedirect.
+            'redirect' => null,
+        ],
+
         'ceremony' => [
             // required | preferred | discouraged. Only `required` proves a
             // PIN or biometric check.

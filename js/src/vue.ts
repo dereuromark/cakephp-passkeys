@@ -7,7 +7,7 @@
  */
 
 import { ref } from 'vue';
-import { register, authenticate } from './core';
+import { register, authenticate, secondFactor } from './core';
 import type { Endpoints } from './types';
 
 export function usePasskey(endpoints: Endpoints) {
@@ -30,5 +30,13 @@ export function usePasskey(endpoints: Endpoints) {
         finally { isLoading.value = false; }
     }
 
-    return { register: doRegister, authenticate: doAuthenticate, isLoading, error };
+    async function doSecondFactor() {
+        isLoading.value = true;
+        error.value = null;
+        try { return await secondFactor({ endpoints }); }
+        catch (e) { error.value = e as Error; throw e; }
+        finally { isLoading.value = false; }
+    }
+
+    return { register: doRegister, authenticate: doAuthenticate, secondFactor: doSecondFactor, isLoading, error };
 }
