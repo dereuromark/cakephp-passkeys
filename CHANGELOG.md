@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `GET /.well-known/passkey-endpoints` tells password managers where users add and manage passkeys. Off until `wellKnown.enroll` or `wellKnown.manage` is set.
 - `bin/cake passkeys list <user>` and `bin/cake passkeys revoke <user> [<passkey>]` to show and remove a user's passkeys, for example after a lost device. Each deletion dispatches `CakePasskeys.afterDelete`.
 - `allowedAaguids` option: limit new passkeys to a list of authenticator models (AAGUIDs). A policy filter on the self-reported AAGUID, not attestation-backed; existing passkeys are not affected.
+- Optional security alert mail when a passkey is added to an account (`notify.onRegister`, `notify.emailProfile`, `notify.manageUrl`), sent with the new `CakePasskeys\Mailer\PasskeyMailer`.
 
 ### Changed
 

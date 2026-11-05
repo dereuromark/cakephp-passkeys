@@ -6,6 +6,8 @@ use Cake\Core\Configure;
 use Cake\Datasource\ConnectionManager;
 use Cake\Log\Engine\FileLog;
 use Cake\Log\Log;
+use Cake\Mailer\Mailer;
+use Cake\Mailer\TransportFactory;
 use Cake\Utility\Security;
 
 require dirname(__DIR__) . '/vendor/autoload.php';
@@ -65,5 +67,8 @@ Log::setConfig('error', [
     'file' => 'error',
     'levels' => ['warning', 'error', 'critical', 'alert', 'emergency'],
 ]);
+
+TransportFactory::setConfig('default', ['className' => 'Debug']);
+Mailer::setConfig('default', ['transport' => 'default', 'from' => 'noreply@example.com']);
 
 Security::setSalt('passkeys-plugin-test-salt-not-secret-not-prod');

@@ -80,6 +80,9 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `nudge.redisplayAfterDays` | `14` | Days until a dismissed nudge shows again. |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
 | `wellKnown.enroll`, `wellKnown.manage` | `null` | URLs (string or URL array) served at `/.well-known/passkey-endpoints`. See [Password manager links](#password-manager-links). |
+| `notify.onRegister` | `false` | Mail the user when a passkey is added to their account. See [Alert mail](#alert-mail-for-new-passkeys). |
+| `notify.emailProfile` | `'default'` | Mailer profile the alert is sent with. |
+| `notify.manageUrl` | `null` | Link to your passkey management page, shown in the alert. A URL string or a routing array. |
 
 ## Usage
 
@@ -214,6 +217,30 @@ EventManager::instance()->on('CakePasskeys.afterLogin', function (EventInterface
 `afterDelete` also fires from the `passkeys revoke` command, with the command as subject; check the subject before calling `getRequest()` on it.
 
 A listener attached in your `AppController` does not run: the plugin's controller does not extend it. See [docs/Events.md](docs/Events.md).
+
+## Alert mail for new passkeys
+
+A passkey added from a stolen session gives the attacker lasting access. With `notify.onRegister` enabled, the plugin mails the account owner after every registration, so it does not go unnoticed:
+
+```php
+'CakePasskeys' => [
+    'notify' => [
+        'onRegister' => true,
+        'emailProfile' => 'default',
+        'manageUrl' => ['controller' => 'Account', 'action' => 'security'],
+    ],
+],
+```
+
+The mail goes to the user's email (`users.columns.email`, or `getPasskeyDisplayEmail()`) and names the passkey, the device (when the authenticator model is known) and the time. It tells the user to remove the passkey and secure the account if it was not them. It is sent after the passkey is stored and after `afterRegister`; if sending fails, a warning is logged and the registration still succeeds. Users without an email get no mail.
+
+The mail is `CakePasskeys\Mailer\PasskeyMailer::registered()`, with the templates `CakePasskeys.registered` and the layout `CakePasskeys.default`. To change them, copy them into your app:
+
+- `templates/plugin/CakePasskeys/email/html/registered.php`
+- `templates/plugin/CakePasskeys/email/text/registered.php`
+- `templates/plugin/CakePasskeys/layout/email/html/default.php` (and `text/default.php`)
+
+Subject and text are in the `passkeys` translation domain.
 
 ## JavaScript
 

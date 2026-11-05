@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 21:40+0000\n"
+"POT-Creation-Date: 2026-11-05 21:38+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -83,6 +83,9 @@ msgstr ""
 msgid "This type of passkey is not allowed here."
 msgstr ""
 
+msgid "{0}: a passkey was added to your account"
+msgstr ""
+
 msgid "Sign in with a passkey"
 msgstr ""
 
@@ -138,5 +141,32 @@ msgid "Add a passkey to sign in on this device without your password."
 msgstr ""
 
 msgid "Not now"
+msgstr ""
+
+msgid "Hi {0},"
+msgstr ""
+
+msgid "A passkey was added to your {0} account."
+msgstr ""
+
+msgid "Name: {0}"
+msgstr ""
+
+msgid "Device: {0}"
+msgstr ""
+
+msgid "Added: {0}"
+msgstr ""
+
+msgid "If this was you, there is nothing to do."
+msgstr ""
+
+msgid "If it was not you, someone else may be signed in to your account. Sign in, remove this passkey and secure your account."
+msgstr ""
+
+msgid "Manage your passkeys"
+msgstr ""
+
+msgid "Manage your passkeys: {0}"
 msgstr ""
 
