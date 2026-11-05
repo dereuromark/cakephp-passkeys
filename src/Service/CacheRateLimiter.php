@@ -10,18 +10,27 @@ use CakePasskeys\Contract\RateLimiterInterface;
 use Throwable;
 
 /**
- * Default limiter: a fixed window per bucket, counted in the cache engine
- * named by `CakePasskeys.cache`. Counting is atomic on engines that support
- * increment() (Redis, Memcached, APCu); elsewhere it is best effort.
+ * Default limiter: a fixed window per bucket, counted in the
+ * `passkeys_rate_limit` cache config (a copy of `CakePasskeys.cache` that
+ * lives an hour, registered by the plugin). Counting is atomic on engines
+ * that support increment() (Redis, Memcached, APCu); elsewhere it is best
+ * effort.
  */
 class CacheRateLimiter implements RateLimiterInterface
 {
+    /**
+     * @var string
+     */
+    public const CACHE_CONFIG = 'passkeys_rate_limit';
+
     /**
      * @inheritDoc
      */
     public function hit(string $key, int $maxAttempts, int $decaySeconds): bool
     {
-        $engine = (string)Configure::read('CakePasskeys.cache', 'default');
+        $engine = Cache::getConfig(static::CACHE_CONFIG)
+            ? static::CACHE_CONFIG
+            : (string)Configure::read('CakePasskeys.cache', 'default');
         $window = intdiv(time(), max(1, $decaySeconds));
         $bucket = 'passkeys_rl_' . sha1($key) . '_' . $window;
 

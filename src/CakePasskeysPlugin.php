@@ -61,6 +61,15 @@ class CakePasskeysPlugin extends BasePlugin
                 ['duration' => (int)Configure::read('CakePasskeys.challengeTtl', 300)],
             ));
         }
+        // Rate-limit buckets must outlive their window (at most a minute), or
+        // a short base duration would reset a full bucket early.
+        if (!Cache::getConfig('passkeys_rate_limit')) {
+            $baseEngine = (string)Configure::read('CakePasskeys.cache', 'default');
+            Cache::setConfig('passkeys_rate_limit', array_merge(
+                Cache::getConfig($baseEngine) ?? [],
+                ['duration' => '+1 hour'],
+            ));
+        }
     }
 
     /**

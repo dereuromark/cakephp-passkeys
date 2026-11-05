@@ -43,7 +43,7 @@ Without `allowedOrigins`, a response is accepted from any HTTPS origin whose hos
 
 ### Rate limiting
 
-By default the plugin counts requests in the `cache` engine (`CakePasskeys\Service\CacheRateLimiter`), in a fixed window per bucket, and answers 429 once a bucket is full. On engines without atomic `increment()` (File, for one) the count is best effort. To use your application's own limiter:
+By default the plugin counts requests in the `passkeys_rate_limit` cache config (`CakePasskeys\Service\CacheRateLimiter`; a copy of the `cache` engine that lives an hour, so a bucket never expires inside its window), in a fixed window per bucket, and answers 429 once a bucket is full. On engines without atomic `increment()` (File, for one) the count is best effort. To use your application's own limiter:
 
 ```php
 'CakePasskeys' => [

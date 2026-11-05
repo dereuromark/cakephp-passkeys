@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace CakePasskeys\Test\TestCase\Service;
 
 use Cake\Cache\Cache;
-use Cake\Core\Configure;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\Service\CacheRateLimiter;
 
@@ -14,15 +13,13 @@ class CacheRateLimiterTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        Cache::drop('passkeys_rl_test');
-        Cache::setConfig('passkeys_rl_test', ['className' => 'Array', 'duration' => 300]);
-        Configure::write('CakePasskeys.cache', 'passkeys_rl_test');
+        Cache::drop(CacheRateLimiter::CACHE_CONFIG);
+        Cache::setConfig(CacheRateLimiter::CACHE_CONFIG, ['className' => 'Array', 'duration' => 3600]);
     }
 
     protected function tearDown(): void
     {
-        Cache::drop('passkeys_rl_test');
-        Configure::write('CakePasskeys.cache', 'default');
+        Cache::drop(CacheRateLimiter::CACHE_CONFIG);
         parent::tearDown();
     }
 

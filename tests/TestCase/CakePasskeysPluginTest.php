@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CakePasskeys\Test\TestCase;
 
+use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Http\BaseApplication;
 use Cake\Http\MiddlewareQueue;
@@ -78,6 +79,29 @@ class CakePasskeysPluginTest extends TestCase
             I18n::setLocale($locale);
             Configure::delete('App.paths.locales');
             I18n::clear();
+        }
+    }
+
+    public function testRateLimitCacheOutlivesAShortBaseDuration(): void
+    {
+        Cache::drop('passkeys_rate_limit');
+        Cache::drop('short_base');
+        Cache::setConfig('short_base', ['className' => 'Array', 'duration' => 10]);
+        Configure::write('CakePasskeys.cache', 'short_base');
+        $app = new class (CONFIG) extends BaseApplication
+        {
+            public function middleware(MiddlewareQueue $m): MiddlewareQueue
+            {
+                return $m;
+            }
+        };
+        try {
+            (new CakePasskeysPlugin())->bootstrap($app);
+            $this->assertSame('+1 hour', Cache::getConfig('passkeys_rate_limit')['duration']);
+        } finally {
+            Cache::drop('passkeys_rate_limit');
+            Cache::drop('short_base');
+            Configure::write('CakePasskeys.cache', 'default');
         }
     }
 
