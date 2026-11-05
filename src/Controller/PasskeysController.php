@@ -211,13 +211,13 @@ class PasskeysController extends Controller
             // A flag left by an earlier sign-in must not carry over.
             $session->delete($mfaFlag);
         }
-        $persisted = $this->persistIdentity($user);
         $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
+        $rootKey = explode('.', $userIdKey)[0];
         // Skip the id when the authenticator just stored the identity under
         // the same root key (entity, nested array or bare primary key alike):
         // the write would clobber it.
-        $rootKey = explode('.', $userIdKey)[0];
-        if ($userIdKey !== '' && !($persisted && $session->check($rootKey))) {
+        $identityAtRoot = $this->persistIdentity($user, $rootKey);
+        if ($userIdKey !== '' && !$identityAtRoot) {
             $session->write($userIdKey, $passkey->user_id);
         }
         $event = $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
@@ -570,10 +570,11 @@ class PasskeysController extends Controller
      * row is persisted through the service instead.
      *
      * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param string $rootKey Session root of `session.userIdKey`.
      *
-     * @return bool Whether the identity was persisted.
+     * @return bool Whether persisting the identity wrote under `$rootKey`.
      */
-    private function persistIdentity(PasskeyUserInterface $user): bool
+    private function persistIdentity(PasskeyUserInterface $user, string $rootKey): bool
     {
         if (!Configure::read('CakePasskeys.session.persistIdentity', true)) {
             return false;
@@ -591,12 +592,14 @@ class PasskeysController extends Controller
             $this->setResponse($cleared['response']);
         }
 
+        $session = $this->getRequest()->getSession();
+        $before = $session->read($rootKey);
         $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
         $result = $service->persistIdentity($this->getRequest(), $this->getResponse(), $identity);
         $this->setRequest($result['request']);
         $this->setResponse($result['response']);
 
-        return true;
+        return $rootKey !== '' && $session->read($rootKey) !== $before;
     }
 
     /**

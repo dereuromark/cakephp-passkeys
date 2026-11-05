@@ -711,6 +711,32 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
+     * An unrelated value under the userIdKey root that the authenticator did
+     * not touch does not suppress the userIdKey write.
+     *
+     * @return void
+     */
+    public function testLoginFinishWritesSessionKeyNextToUnrelatedRootValue(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy(null);
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+        $request->getSession()->write('Auth.locale', 'de');
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
      * An authenticator whose session key is nested under the userIdKey root
      * (here `Auth.id`, as the default userIdKey) keeps its identity.
      *
