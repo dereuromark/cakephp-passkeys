@@ -598,19 +598,20 @@ class PasskeysController extends Controller
             return false;
         }
 
-        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
-        if (!$identity instanceof ArrayAccess) {
-            // cakephp/authentication only stores entities and other ArrayAccess
-            // identities; anything else falls back to session.userIdKey.
-            return false;
-        }
-
         // The Session authenticator does not overwrite an identity that is
         // already there, so a sign-in on top of another user would keep them.
         if (method_exists($service, 'clearIdentity')) {
             $cleared = $service->clearIdentity($this->getRequest(), $this->getResponse());
             $this->setRequest($cleared['request']);
             $this->setResponse($cleared['response']);
+        }
+
+        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
+        if (!$identity instanceof ArrayAccess) {
+            // cakephp/authentication only stores entities and other ArrayAccess
+            // identities; anything else falls back to session.userIdKey,
+            // with the previous identity already cleared above.
+            return false;
         }
 
         $session = $this->getRequest()->getSession();
