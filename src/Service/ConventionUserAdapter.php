@@ -20,6 +20,14 @@ class ConventionUserAdapter implements PasskeyUserInterface
     }
 
     /**
+     * @return \Cake\Datasource\EntityInterface
+     */
+    public function getEntity(): EntityInterface
+    {
+        return $this->entity;
+    }
+
+    /**
      * @throws \RuntimeException
      *
      * @return string

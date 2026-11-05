@@ -13,14 +13,14 @@ The flow:
 On success the plugin:
 
 - renews the session id
-- writes the user id to the session key in `CakePasskeys.session.userIdKey`
+- with `cakephp/authentication` loaded, persists the user row as the identity through the authentication service; otherwise writes the user id to the session key in `CakePasskeys.session.userIdKey`
 - sets the session flag `CakePasskeys.mfa_satisfied` to `true` when `ceremony.userVerification` is `required`
 - dispatches `CakePasskeys.afterLogin`
 
-Your application turns that into its own notion of "signed in". Two common ways:
+With `cakephp/authentication`, that is all: the user is signed in. Without it, your application turns that into its own notion of "signed in". Two common ways:
 
 ```php
-// config: write the id where your session authenticator reads it
+// config: write the id where your own login code reads it
 'CakePasskeys' => [
     'session' => ['userIdKey' => 'Auth.id'],
 ],
@@ -30,6 +30,7 @@ Your application turns that into its own notion of "signed in". Two common ways:
 // or build the identity yourself, in Application::bootstrap()
 EventManager::instance()->on('CakePasskeys.afterLogin', function (EventInterface $event): void {
     $userId = $event->getData('event')->getPasskey()->user_id;
+    $session = $event->getSubject()->getRequest()->getSession();
     // load the user, write your session, record the login
 });
 ```

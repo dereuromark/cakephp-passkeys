@@ -4,12 +4,14 @@ The plugin dispatches four events on the global event manager.
 
 ## Events
 
-| Event | Subject | Extra data | Fired from |
-| --- | --- | --- | --- |
-| `CakePasskeys.afterRegister` | `CakePasskeys\Event\PasskeyEvent` | none | `registerFinish` |
-| `CakePasskeys.afterLogin` | `CakePasskeys\Event\PasskeyEvent` | none | `loginFinish` |
-| `CakePasskeys.afterRename` | `CakePasskeys\Event\PasskeyEvent` | `['old' => $old, 'new' => $new]` | `rename` |
-| `CakePasskeys.afterDelete` | `CakePasskeys\Event\PasskeyEvent` | none | `delete` |
+| Event | Extra data | Fired from |
+| --- | --- | --- |
+| `CakePasskeys.afterRegister` | none | `registerFinish` |
+| `CakePasskeys.afterLogin` | none | `loginFinish` |
+| `CakePasskeys.afterRename` | `['old' => $old, 'new' => $new]` | `rename` |
+| `CakePasskeys.afterDelete` | none | `delete` |
+
+The subject of every event is the plugin's `PasskeysController`, so a listener can reach the request and the session through `$event->getSubject()->getRequest()`. The payload is a `CakePasskeys\Event\PasskeyEvent` under `$event->getData('event')`.
 
 ## Event payload
 

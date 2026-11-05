@@ -60,9 +60,13 @@ return [
         'identityResolver' => null,
 
         'session' => [
-            // Session key the user id is written to after a passkey sign-in,
-            // and read from when no identity attribute is present. Empty
-            // string to write nothing and rely on the afterLogin event.
+            // With cakephp/authentication loaded, hand the signed-in user row
+            // to its persistIdentity() instead of writing userIdKey.
+            'persistIdentity' => true,
+            // Session key the user id is written to after a passkey sign-in
+            // (skipped when the persisted identity sits under the same root
+            // key), and read from when no identity attribute is present.
+            // Empty string to write nothing and rely on the afterLogin event.
             'userIdKey' => 'Auth.id',
         ],
 

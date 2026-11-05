@@ -21,6 +21,7 @@ use CakePasskeys\Event\PasskeyEvent;
 use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
 use CakePasskeys\Service\ChallengeStore;
+use CakePasskeys\Service\ConventionUserAdapter;
 use CakePasskeys\Service\IdentityResolver;
 use CakePasskeys\Service\NullRateLimiter;
 use CakePasskeys\Service\UserResolver;
@@ -201,8 +202,12 @@ class PasskeysController extends Controller
                 true,
             );
         }
+        $persisted = $this->persistIdentity($user);
         $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
-        if ($userIdKey !== '') {
+        // Skip the id when the persisted identity now lives under the same
+        // root key (the Session authenticator's `Auth`): it would clobber it.
+        $rootKey = explode('.', $userIdKey)[0];
+        if ($userIdKey !== '' && !($persisted && is_object($session->read($rootKey)))) {
             $session->write($userIdKey, $passkey->user_id);
         }
         $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
@@ -513,9 +518,38 @@ class PasskeysController extends Controller
     {
         EventManager::instance()->dispatch(new Event(
             'CakePasskeys.' . $name,
-            null,
+            $this,
             ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
         ));
+    }
+
+    /**
+     * Hands the signed-in user to cakephp/authentication when the host runs it.
+     *
+     * A bare id under the authenticator's session key would be read back as an
+     * identity without the user's other fields (role, flags), so the full user
+     * row is persisted through the service instead.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     *
+     * @return bool Whether the identity was persisted.
+     */
+    private function persistIdentity(PasskeyUserInterface $user): bool
+    {
+        if (!Configure::read('CakePasskeys.session.persistIdentity', true)) {
+            return false;
+        }
+        $service = $this->getRequest()->getAttribute('authentication');
+        if (!is_object($service) || !method_exists($service, 'persistIdentity')) {
+            return false;
+        }
+
+        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
+        $result = $service->persistIdentity($this->getRequest(), $this->getResponse(), $identity);
+        $this->setRequest($result['request']);
+        $this->setResponse($result['response']);
+
+        return true;
     }
 
     /**

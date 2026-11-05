@@ -58,6 +58,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `users.activeColumn` | `null` | Boolean column. Users where it is false cannot register or sign in. |
 | `users.idType` | `'integer'` | Type of `passkeys.user_id`: `integer`, `biginteger`, `uuid` or `string`. Read by the migration. |
 | `identityResolver` | `null` | Closure that returns the id of the signed-in user. See [Who is signed in](#who-is-signed-in). |
+| `session.persistIdentity` | `true` | Hand the signed-in user to `cakephp/authentication` when it is loaded. See [Pick up the signed-in user](#4-pick-up-the-signed-in-user). |
 | `session.userIdKey` | `'Auth.id'` | Session key the user id is written to after a passkey sign-in. |
 | `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |
 | `maxPerUser` | `5` | Passkeys per user. `0` for no limit. |
@@ -109,14 +110,15 @@ The button stays hidden in browsers without WebAuthn. `autofillAttribute()` lets
 After a successful sign-in the plugin:
 
 1. renews the session id
-2. writes the user id to the session key in `session.userIdKey`
+2. signs the user in (see below)
 3. dispatches `CakePasskeys.afterLogin`
 4. answers with `{"redirectTo": ..., "userId": ...}`, and the JavaScript navigates to `redirectTo`
 
-How that becomes "signed in" depends on your application:
+How the user gets signed in:
 
-- With `cakephp/authentication` and its `Session` authenticator, set `session.userIdKey` to the key that authenticator reads, or build the identity in an `afterLogin` listener.
-- With your own session-based login, set `session.userIdKey` to the key your code checks.
+- With `cakephp/authentication` loaded, the plugin loads the user row from `users.table` and passes it to the authentication service's `persistIdentity()`. With its Session authenticator, the next request sees the full user entity as its identity, the same as after a password login. Nothing to configure.
+- The plugin also writes the user id to the session key in `session.userIdKey`, for your own login code to read. It skips that write when the persisted identity already sits under the same root key (`Auth.id` next to the Session authenticator's `Auth`). Set `session.userIdKey` to an empty string if nothing reads it.
+- `session.persistIdentity` set to `false` turns off the hand-over; then only `session.userIdKey` is written.
 
 ## Who is signed in
 
