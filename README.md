@@ -275,7 +275,3 @@ The plugin has no recovery flow. A user who loses every device with a passkey ne
 
 - A passkey sign-in is a complete sign-in. Using a passkey as a second factor after a password is not supported: the login endpoints are anonymous and do not tie the passkey to the account that passed the first factor.
 - No attestation policy. Any authenticator is accepted.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
