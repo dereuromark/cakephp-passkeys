@@ -9,6 +9,7 @@ use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
 use Cake\Datasource\EntityInterface;
+use Cake\Event\Event;
 use Cake\Event\EventInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Exception\BadRequestException;
@@ -640,6 +641,8 @@ class PasskeysControllerTest extends TestCase
             'environment' => ['REQUEST_METHOD' => 'POST'],
         ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
         $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+        // Left over from an earlier, user-verified sign-in.
+        $request->getSession()->write('CakePasskeys.mfa_satisfied', true);
 
         $response = $this->controllerWith($request, $service)->loginFinish();
 
@@ -705,6 +708,91 @@ class PasskeysControllerTest extends TestCase
         $this->controllerWith($request, $service)->loginFinish();
 
         $this->assertSame('alice@example.com', $session->read('Auth')->get('email'));
+    }
+
+    /**
+     * An authenticator whose session key is nested under the userIdKey root
+     * (here `Auth.id`, as the default userIdKey) keeps its identity.
+     *
+     * @return void
+     */
+    public function testLoginFinishKeepsIdentityStoredUnderNestedKey(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy('Auth.id');
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame($auth->persisted[0], $request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * An afterLogin listener can add to the JSON answer, e.g. an API token.
+     *
+     * @return void
+     */
+    public function testAfterLoginListenerResultIsMergedIntoResponse(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $listener = function (EventInterface $event): void {
+            $event->setResult(['token' => 'abc', 'userId' => 'ignored']);
+        };
+        EventManager::instance()->on('CakePasskeys.afterLogin', $listener);
+        try {
+            $response = $this->controllerWith($request, $service)->loginFinish();
+        } finally {
+            EventManager::instance()->off('CakePasskeys.afterLogin', $listener);
+        }
+
+        $body = json_decode((string)$response->getBody(), true);
+        $this->assertSame('abc', $body['token']);
+        $this->assertSame(1, $body['userId']);
+    }
+
+    /**
+     * With cakephp/authorization and its requireAuthorizationCheck, every
+     * plugin action has to count as checked.
+     *
+     * @return void
+     */
+    public function testBeforeFilterMarksAuthorizationAsHandled(): void
+    {
+        $authorization = new class {
+            public bool $skipped = false;
+
+            /**
+             * @return $this
+             */
+            public function skipAuthorization()
+            {
+                $this->skipped = true;
+
+                return $this;
+            }
+        };
+        $request = (new ServerRequest())->withAttribute('authorization', $authorization);
+        $controller = $this->controllerWith($request, $this->createStub(WebAuthnService::class));
+
+        $controller->beforeFilter(new Event('Controller.initialize', $controller));
+
+        $this->assertTrue($authorization->skipped);
     }
 
     /**

@@ -71,6 +71,9 @@ class CakePasskeysPluginTest extends TestCase
         I18n::setLocale('de_DE');
         try {
             $this->assertSame('Hinzugefügt', __d('passkeys', 'Added'));
+            // A locale the plugin ships no catalog for falls back to the source text.
+            I18n::setLocale('fr_FR');
+            $this->assertSame('Added', __d('passkeys', 'Added'));
         } finally {
             I18n::setLocale($locale);
             Configure::delete('App.paths.locales');

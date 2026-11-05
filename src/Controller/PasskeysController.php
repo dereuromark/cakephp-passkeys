@@ -114,6 +114,12 @@ class PasskeysController extends Controller
         if (!Configure::read('CakePasskeys.enabled')) {
             throw new NotFoundException();
         }
+        // These endpoints check the user themselves. Without this,
+        // cakephp/authorization's requireAuthorizationCheck refuses every one.
+        $authorization = $this->getRequest()->getAttribute('authorization');
+        if (is_object($authorization) && method_exists($authorization, 'skipAuthorization')) {
+            $authorization->skipAuthorization();
+        }
     }
 
     /**
@@ -198,27 +204,31 @@ class PasskeysController extends Controller
         // planted before the login is worthless afterwards.
         $session->renew();
         $userVerified = $this->requiresUserVerification();
+        $mfaFlag = (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied');
         if ($userVerified) {
-            $session->write(
-                (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied'),
-                true,
-            );
+            $session->write($mfaFlag, true);
+        } else {
+            // A flag left by an earlier sign-in must not carry over.
+            $session->delete($mfaFlag);
         }
         $persisted = $this->persistIdentity($user);
         $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
-        // Skip the id when the persisted identity now lives under the same
-        // root key (the Session authenticator's `Auth`): it would clobber it.
+        // Skip the id when the authenticator just stored the identity under
+        // the same root key (entity, nested array or bare primary key alike):
+        // the write would clobber it.
         $rootKey = explode('.', $userIdKey)[0];
-        if ($userIdKey !== '' && !($persisted && is_object($session->read($rootKey)))) {
+        if ($userIdKey !== '' && !($persisted && $session->check($rootKey))) {
             $session->write($userIdKey, $passkey->user_id);
         }
-        $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
+        $event = $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
+        // A listener may add to the answer, e.g. a token for API clients.
+        $extra = $event->getResult();
 
         return $this->json([
             'redirectTo' => (string)Configure::read('CakePasskeys.afterLoginRedirect', '/'),
             'mfaSatisfied' => $userVerified,
             'userId' => $passkey->user_id,
-        ]);
+        ] + (is_array($extra) ? $extra : []));
     }
 
     /**
@@ -514,15 +524,18 @@ class PasskeysController extends Controller
      * @param string $userHandle
      * @param array<string, mixed> $data
      *
-     * @return void
+     * @return \Cake\Event\EventInterface<$this>
      */
-    private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): void
+    private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): EventInterface
     {
-        EventManager::instance()->dispatch(new Event(
+        $event = new Event(
             'CakePasskeys.' . $name,
             $this,
             ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
-        ));
+        );
+        EventManager::instance()->dispatch($event);
+
+        return $event;
     }
 
     /**

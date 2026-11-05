@@ -232,7 +232,10 @@ Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](d
 - **Deactivated users.** A sign-in is refused when the user row is gone or `users.activeColumn` is false, even though the passkey itself is still valid.
 - **Rate limiting.** None by default. `login/start` is open to anonymous callers, so bind a `RateLimiterInterface` in production.
 - **Email hint.** With `login.emailHint` enabled, `login/start` returns the credential ids of the account behind an email address. That tells anyone whether the address has passkeys. Leave it off unless you need sign-in with security keys that hold no account information.
-- **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case.
+- **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case, and removed on a sign-in without it. Clear it in your logout too; the plugin does not see the logout.
+- **Replay.** A login challenge is consumed with `Cache::add()`, which is only atomic on Redis, Memcached and APCu. With the File engine two finishes racing on the same challenge can both pass the cache check (the session-bound challenge list and the signature counter still apply). Point `cache` at an atomic engine in production.
+- **`Security.salt`.** The default user handle is an HMAC of the user id with the salt. Changing the salt makes every existing passkey unusable. If you must rotate it, set `users.userHandle` to keep the old handles.
+- **Authorization.** With `cakephp/authorization`, the plugin marks its own actions as checked, because they verify the user themselves. Request-level policies (a request policy, TinyAuth) still run before them; allow the plugin routes there.
 - **Synced passkeys** from iCloud Keychain or Google Password Manager report a signature counter of 0. That is accepted. A counter that goes backwards is refused.
 
 More in [docs/SecurityModel.md](docs/SecurityModel.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
@@ -248,7 +251,9 @@ If your app stored passkeys before it used this plugin, the authenticators know 
 ],
 ```
 
-New passkeys then get the same handle. The `passkeys` table columns must match the plugin's migration; add missing ones in a migration of your own instead of running the plugin's.
+New passkeys then get the same handle.
+
+If your app already has a `passkeys` table, do not run the plugin's migration. Add any column the plugin's `config/Migrations/*_CreatePasskeys.php` has and yours lacks in a migration of your own (keep the binary types for `credential_id`, `public_key` and `aaguid`), then record the plugin migration as done with `bin/cake migrations mark_migrated -p CakePasskeys`.
 
 ## Recovery
 

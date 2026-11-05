@@ -9,6 +9,7 @@ use Cake\Core\BasePlugin;
 use Cake\Core\Configure;
 use Cake\Core\ContainerInterface;
 use Cake\Core\PluginApplicationInterface;
+use Cake\I18n\ChainMessagesLoader;
 use Cake\I18n\I18n;
 use Cake\I18n\MessagesFileLoader;
 use Cake\I18n\Package;
@@ -42,8 +43,11 @@ class CakePasskeysPlugin extends BasePlugin
         // Cake maps a text domain to a plugin by camelizing it, and `passkeys`
         // does not camelize to `CakePasskeys`, so without this loader the
         // plugin's own translations are never found.
-        I18n::config('passkeys', static function (string $domain, string $locale): Package|false {
-            return (new MessagesFileLoader('CakePasskeys.passkeys', $locale, 'po'))();
+        I18n::config('passkeys', static function (string $domain, string $locale): Package {
+            return (new ChainMessagesLoader([
+                new MessagesFileLoader('CakePasskeys.passkeys', $locale, 'mo'),
+                new MessagesFileLoader('CakePasskeys.passkeys', $locale, 'po'),
+            ]))();
         });
 
         // Register a dedicated cache engine for WebAuthn challenges so the

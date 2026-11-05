@@ -39,6 +39,11 @@ class IdentityResolver
         if ($id !== null) {
             return $id;
         }
+        // With cakephp/authentication the identity attribute is the truth; a
+        // leftover session key must not keep a logged-out browser signed in.
+        if ($request->getAttribute('authentication') !== null) {
+            return null;
+        }
 
         $sessionKey = (string)Configure::read('CakePasskeys.session.userIdKey', '');
         if ($sessionKey === '') {

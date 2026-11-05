@@ -13,7 +13,8 @@ The flow:
 On success the plugin:
 
 - renews the session id
-- with `cakephp/authentication` loaded, persists the user row as the identity through the authentication service; otherwise writes the user id to the session key in `CakePasskeys.session.userIdKey`
+- with `cakephp/authentication` loaded, persists the user row as the identity through the authentication service (replacing an identity already there)
+- writes the user id to the session key in `CakePasskeys.session.userIdKey`, unless the authenticator just stored the identity under the same root key
 - sets the session flag `CakePasskeys.mfa_satisfied` to `true` when `ceremony.userVerification` is `required`
 - dispatches `CakePasskeys.afterLogin`
 
@@ -41,7 +42,7 @@ Set `session.userIdKey` to an empty string if you only want the event.
 
 With user verification required, the authenticator checked a PIN, a fingerprint or a face before it signed. Possession of the device plus that check are two factors. If your application has a step that asks for a second factor after sign-in, it can skip it when the flag is set.
 
-The flag is not set when you lower `ceremony.userVerification` to `preferred` or `discouraged`, because the sign-in then proves possession only.
+The flag is not set when you lower `ceremony.userVerification` to `preferred` or `discouraged`, because the sign-in then proves possession only; a flag left by an earlier sign-in is removed. Clear it in your own logout.
 
 ### Passkey as a second factor
 
