@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
 ### Fixed
 
 - A passkey sign-in in an app running `cakephp/authentication` now persists the full user row as the identity through the authentication service. Before, only the user id was written to `session.userIdKey`; under the Session authenticator's key, that became an identity without the user's other fields. The id is still written to `session.userIdKey` unless the persisted identity sits under the same root key. New option `session.persistIdentity` (default `true`) turns this off.
