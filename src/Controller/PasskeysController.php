@@ -21,6 +21,7 @@ use CakePasskeys\Event\PasskeyEvent;
 use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
 use CakePasskeys\Service\ChallengeStore;
+use CakePasskeys\Service\ConventionUserAdapter;
 use CakePasskeys\Service\IdentityResolver;
 use CakePasskeys\Service\NullRateLimiter;
 use CakePasskeys\Service\UserResolver;
@@ -113,6 +114,12 @@ class PasskeysController extends Controller
         if (!Configure::read('CakePasskeys.enabled')) {
             throw new NotFoundException();
         }
+        // These endpoints check the user themselves. Without this,
+        // cakephp/authorization's requireAuthorizationCheck refuses every one.
+        $authorization = $this->getRequest()->getAttribute('authorization');
+        if (is_object($authorization) && method_exists($authorization, 'skipAuthorization')) {
+            $authorization->skipAuthorization();
+        }
     }
 
     /**
@@ -122,6 +129,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
+        $this->guardRegistration($user);
         $this->throttle('passkeys.register.' . $user->getUserId(), 10, 60);
 
         try {
@@ -138,6 +146,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
+        $this->guardRegistration($user);
         $body = (array)$this->getRequest()->getParsedBody();
         try {
             $passkey = $this->webauthn()->finishRegistration(
@@ -195,23 +204,31 @@ class PasskeysController extends Controller
         // planted before the login is worthless afterwards.
         $session->renew();
         $userVerified = $this->requiresUserVerification();
+        $mfaFlag = (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied');
         if ($userVerified) {
-            $session->write(
-                (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied'),
-                true,
-            );
+            $session->write($mfaFlag, true);
+        } else {
+            // A flag left by an earlier sign-in must not carry over.
+            $session->delete($mfaFlag);
         }
         $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
-        if ($userIdKey !== '') {
+        $rootKey = explode('.', $userIdKey)[0];
+        // Skip the id when the authenticator just stored the identity under
+        // the same root key (entity, nested array or bare primary key alike):
+        // the write would clobber it.
+        $identityAtRoot = $this->persistIdentity($user, $rootKey);
+        if ($userIdKey !== '' && !$identityAtRoot) {
             $session->write($userIdKey, $passkey->user_id);
         }
-        $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
+        $event = $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
+        // A listener may add to the answer, e.g. a token for API clients.
+        $extra = $event->getResult();
 
         return $this->json([
             'redirectTo' => (string)Configure::read('CakePasskeys.afterLoginRedirect', '/'),
             'mfaSatisfied' => $userVerified,
             'userId' => $passkey->user_id,
-        ]);
+        ] + (is_array($extra) ? $extra : []));
     }
 
     /**
@@ -507,15 +524,82 @@ class PasskeysController extends Controller
      * @param string $userHandle
      * @param array<string, mixed> $data
      *
+     * @return \Cake\Event\EventInterface<$this>
+     */
+    private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): EventInterface
+    {
+        $event = new Event(
+            'CakePasskeys.' . $name,
+            $this,
+            ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
+        );
+        EventManager::instance()->dispatch($event);
+
+        return $event;
+    }
+
+    /**
+     * Lets the host refuse a registration, for example when the sign-in is
+     * not recent. A listener stops the event and may set a message as result.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     *
+     * @throws \Cake\Http\Exception\ForbiddenException
+     *
      * @return void
      */
-    private function fire(string $name, Passkey $passkey, string $userHandle, array $data = []): void
+    private function guardRegistration(PasskeyUserInterface $user): void
     {
-        EventManager::instance()->dispatch(new Event(
-            'CakePasskeys.' . $name,
-            null,
-            ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
-        ));
+        $event = new Event('CakePasskeys.beforeRegister', $this, ['user' => $user]);
+        EventManager::instance()->dispatch($event);
+        if (!$event->isStopped()) {
+            return;
+        }
+        $result = $event->getResult();
+
+        throw new ForbiddenException(
+            is_string($result) && $result !== '' ? $result : __d('passkeys', 'You cannot add a passkey right now.'),
+        );
+    }
+
+    /**
+     * Hands the signed-in user to cakephp/authentication when the host runs it.
+     *
+     * A bare id under the authenticator's session key would be read back as an
+     * identity without the user's other fields (role, flags), so the full user
+     * row is persisted through the service instead.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param string $rootKey Session root of `session.userIdKey`.
+     *
+     * @return bool Whether persisting the identity wrote under `$rootKey`.
+     */
+    private function persistIdentity(PasskeyUserInterface $user, string $rootKey): bool
+    {
+        if (!Configure::read('CakePasskeys.session.persistIdentity', true)) {
+            return false;
+        }
+        $service = $this->getRequest()->getAttribute('authentication');
+        if (!is_object($service) || !method_exists($service, 'persistIdentity')) {
+            return false;
+        }
+
+        // The Session authenticator does not overwrite an identity that is
+        // already there, so a sign-in on top of another user would keep them.
+        if (method_exists($service, 'clearIdentity')) {
+            $cleared = $service->clearIdentity($this->getRequest(), $this->getResponse());
+            $this->setRequest($cleared['request']);
+            $this->setResponse($cleared['response']);
+        }
+
+        $session = $this->getRequest()->getSession();
+        $before = $session->read($rootKey);
+        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
+        $result = $service->persistIdentity($this->getRequest(), $this->getResponse(), $identity);
+        $this->setRequest($result['request']);
+        $this->setResponse($result['response']);
+
+        return $rootKey !== '' && $session->read($rootKey) !== $before;
     }
 
     /**

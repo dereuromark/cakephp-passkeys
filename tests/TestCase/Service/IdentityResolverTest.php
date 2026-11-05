@@ -73,6 +73,20 @@ class IdentityResolverTest extends TestCase
         $this->assertSame(9, (new IdentityResolver())->userId($request));
     }
 
+    /**
+     * With cakephp/authentication present, no identity means signed out, even
+     * if an old session key is still around.
+     *
+     * @return void
+     */
+    public function testNoSessionFallbackWhenAuthenticationIsPresent(): void
+    {
+        $request = (new ServerRequest())->withAttribute('authentication', new stdClass());
+        $request->getSession()->write('Auth.id', 9);
+
+        $this->assertNull((new IdentityResolver())->userId($request));
+    }
+
     public function testEmptySessionKeyDisablesTheFallback(): void
     {
         Configure::write('CakePasskeys.session.userIdKey', '');

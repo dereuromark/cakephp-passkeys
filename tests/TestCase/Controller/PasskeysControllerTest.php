@@ -8,6 +8,9 @@ use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
+use Cake\Datasource\EntityInterface;
+use Cake\Event\Event;
+use Cake\Event\EventInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Exception\BadRequestException;
 use Cake\Http\ServerRequest;
@@ -17,6 +20,7 @@ use Cake\TestSuite\TestCase;
 use CakePasskeys\Controller\PasskeysController;
 use CakePasskeys\Event\PasskeyEvent;
 use CakePasskeys\Service\WebAuthnService;
+use CakePasskeys\Test\AuthenticationServiceSpy;
 use Migrations\Migrations;
 use PHPUnit\Framework\Attributes\DataProvider;
 
@@ -49,6 +53,7 @@ class PasskeysControllerTest extends TestCase
         // Reset the session-key override — one test overrides this to a
         // non-default path, others rely on the default `Auth.id`.
         Configure::write('CakePasskeys.session.userIdKey', 'Auth.id');
+        Configure::write('CakePasskeys.session.persistIdentity', true);
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -177,6 +182,29 @@ class PasskeysControllerTest extends TestCase
         $body = $this->decodeJsonBody();
         $this->assertArrayHasKey('challenge', $body);
         $this->assertArrayHasKey('challengeKey', $body);
+    }
+
+    /**
+     * A host stops `beforeRegister` (say, the sign-in is not recent); both
+     * register endpoints then refuse with 403 and the listener's message.
+     *
+     * @return void
+     */
+    public function testBeforeRegisterListenerCanRefuseRegistration(): void
+    {
+        $listener = function (EventInterface $event): void {
+            $event->stopPropagation();
+            $event->setResult('Sign in again first.');
+        };
+        EventManager::instance()->on('CakePasskeys.beforeRegister', $listener);
+        try {
+            $this->loginAs(1);
+            $this->post('/passkeys/register/start');
+            $this->assertResponseCode(403);
+            $this->assertResponseContains('Sign in again first.');
+        } finally {
+            EventManager::instance()->off('CakePasskeys.beforeRegister', $listener);
+        }
     }
 
     /**
@@ -613,12 +641,267 @@ class PasskeysControllerTest extends TestCase
             'environment' => ['REQUEST_METHOD' => 'POST'],
         ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
         $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+        // Left over from an earlier, user-verified sign-in.
+        $request->getSession()->write('CakePasskeys.mfa_satisfied', true);
 
         $response = $this->controllerWith($request, $service)->loginFinish();
 
         $this->assertFalse(json_decode((string)$response->getBody(), true)['mfaSatisfied']);
         $this->assertNull($request->getSession()->read('CakePasskeys.mfa_satisfied'));
         $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * With cakephp/authentication in the request, the full user row goes
+     * through persistIdentity(); a bare id under its session key would be
+     * read back as an identity missing every other user field.
+     *
+     * @return void
+     */
+    public function testLoginFinishPersistsIdentityThroughAuthenticationService(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy();
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $controller = $this->controllerWith($request, $service);
+        $response = $controller->loginFinish();
+
+        $this->assertCount(1, $auth->persisted);
+        $this->assertInstanceOf(EntityInterface::class, $auth->persisted[0]);
+        $this->assertSame('alice@example.com', $auth->persisted[0]->get('email'));
+        $this->assertSame('persisted', $response->getHeaderLine('X-Spy'));
+        $this->assertSame($auth->persisted[0], $request->getSession()->read('Auth'));
+    }
+
+    /**
+     * Signing in with a passkey while another user's identity is still in the
+     * session must replace it, not keep it.
+     *
+     * @return void
+     */
+    public function testLoginFinishReplacesIdentityAlreadyInSession(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy();
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $session = $request->getSession();
+        $session->write('CakePasskeys.login_challenges', ['k1']);
+        $bob = $this->getTableLocator()->get('Users')->get(2);
+        $session->write('Auth', $bob);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame('alice@example.com', $session->read('Auth')->get('email'));
+    }
+
+    /**
+     * An unrelated value under the userIdKey root that the authenticator did
+     * not touch does not suppress the userIdKey write.
+     *
+     * @return void
+     */
+    public function testLoginFinishWritesSessionKeyNextToUnrelatedRootValue(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy(null);
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+        $request->getSession()->write('Auth.locale', 'de');
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * An authenticator whose session key is nested under the userIdKey root
+     * (here `Auth.id`, as the default userIdKey) keeps its identity.
+     *
+     * @return void
+     */
+    public function testLoginFinishKeepsIdentityStoredUnderNestedKey(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy('Auth.id');
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame($auth->persisted[0], $request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * An afterLogin listener can add to the JSON answer, e.g. an API token.
+     *
+     * @return void
+     */
+    public function testAfterLoginListenerResultIsMergedIntoResponse(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $listener = function (EventInterface $event): void {
+            $event->setResult(['token' => 'abc', 'userId' => 'ignored']);
+        };
+        EventManager::instance()->on('CakePasskeys.afterLogin', $listener);
+        try {
+            $response = $this->controllerWith($request, $service)->loginFinish();
+        } finally {
+            EventManager::instance()->off('CakePasskeys.afterLogin', $listener);
+        }
+
+        $body = json_decode((string)$response->getBody(), true);
+        $this->assertSame('abc', $body['token']);
+        $this->assertSame(1, $body['userId']);
+    }
+
+    /**
+     * With cakephp/authorization and its requireAuthorizationCheck, every
+     * plugin action has to count as checked.
+     *
+     * @return void
+     */
+    public function testBeforeFilterMarksAuthorizationAsHandled(): void
+    {
+        $authorization = new class {
+            public bool $skipped = false;
+
+            /**
+             * @return $this
+             */
+            public function skipAuthorization()
+            {
+                $this->skipped = true;
+
+                return $this;
+            }
+        };
+        $request = (new ServerRequest())->withAttribute('authorization', $authorization);
+        $controller = $this->controllerWith($request, $this->createStub(WebAuthnService::class));
+
+        $controller->beforeFilter(new Event('Controller.initialize', $controller));
+
+        $this->assertTrue($authorization->skipped);
+    }
+
+    /**
+     * A host whose authentication service does not keep the identity in the
+     * session still gets the configured session key.
+     *
+     * @return void
+     */
+    public function testLoginFinishStillWritesSessionKeyWhenIdentityIsNotInSession(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy(null);
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertCount(1, $auth->persisted);
+        $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * @return void
+     */
+    public function testLoginFinishFallsBackToSessionKeyWhenPersistIdentityIsOff(): void
+    {
+        Configure::write('CakePasskeys.session.persistIdentity', false);
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy();
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame([], $auth->persisted);
+        $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * Listeners get the controller as subject, so they can reach the request
+     * and session (record the login, set host session flags).
+     *
+     * @return void
+     */
+    public function testAfterLoginEventCarriesControllerAsSubject(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $subject = null;
+        $listener = function (EventInterface $event) use (&$subject): void {
+            $subject = $event->getSubject();
+        };
+        EventManager::instance()->on('CakePasskeys.afterLogin', $listener);
+        try {
+            $controller = $this->controllerWith($request, $service);
+            $controller->loginFinish();
+        } finally {
+            EventManager::instance()->off('CakePasskeys.afterLogin', $listener);
+        }
+
+        $this->assertSame($controller, $subject);
     }
 
     /**

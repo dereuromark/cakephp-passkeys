@@ -56,8 +56,10 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `users.table` | `'Users'` | Table your users live in. |
 | `users.columns` | `id`, `email`, `name` | Column names for the id, the email and the display name. |
 | `users.activeColumn` | `null` | Boolean column. Users where it is false cannot register or sign in. |
+| `users.userHandle` | `null` | Closure `fn (EntityInterface $user): string` for the WebAuthn user handle, at most 64 bytes. Set it when your app already has passkeys registered under its own handle. See [Moving existing passkeys](#moving-existing-passkeys). |
 | `users.idType` | `'integer'` | Type of `passkeys.user_id`: `integer`, `biginteger`, `uuid` or `string`. Read by the migration. |
 | `identityResolver` | `null` | Closure that returns the id of the signed-in user. See [Who is signed in](#who-is-signed-in). |
+| `session.persistIdentity` | `true` | Hand the signed-in user to `cakephp/authentication` when it is loaded. See [Pick up the signed-in user](#4-pick-up-the-signed-in-user). |
 | `session.userIdKey` | `'Auth.id'` | Session key the user id is written to after a passkey sign-in. |
 | `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |
 | `maxPerUser` | `5` | Passkeys per user. `0` for no limit. |
@@ -109,14 +111,15 @@ The button stays hidden in browsers without WebAuthn. `autofillAttribute()` lets
 After a successful sign-in the plugin:
 
 1. renews the session id
-2. writes the user id to the session key in `session.userIdKey`
+2. signs the user in (see below)
 3. dispatches `CakePasskeys.afterLogin`
 4. answers with `{"redirectTo": ..., "userId": ...}`, and the JavaScript navigates to `redirectTo`
 
-How that becomes "signed in" depends on your application:
+How the user gets signed in:
 
-- With `cakephp/authentication` and its `Session` authenticator, set `session.userIdKey` to the key that authenticator reads, or build the identity in an `afterLogin` listener.
-- With your own session-based login, set `session.userIdKey` to the key your code checks.
+- With `cakephp/authentication` loaded, the plugin loads the user row from `users.table` and passes it to the authentication service's `persistIdentity()`. With its Session authenticator, the next request sees the full user entity as its identity, the same as after a password login. Nothing to configure.
+- The plugin also writes the user id to the session key in `session.userIdKey`, for your own login code to read. It skips that write when the persisted identity already sits under the same root key (`Auth.id` next to the Session authenticator's `Auth`). Set `session.userIdKey` to an empty string if nothing reads it.
+- `session.persistIdentity` set to `false` turns off the hand-over; then only `session.userIdKey` is written.
 
 ## Who is signed in
 
@@ -166,6 +169,21 @@ Dispatched on the global event manager. The payload is a `CakePasskeys\Event\Pas
 | `CakePasskeys.afterRename` | a passkey was renamed | `old`, `new` |
 | `CakePasskeys.afterDelete` | a passkey was deleted | |
 
+`CakePasskeys.beforeRegister` runs before both register steps, with the user under `user` instead of a payload. Stop it to refuse the registration with a 403; a string result becomes the message:
+
+```php
+EventManager::instance()->on('CakePasskeys.beforeRegister', function (EventInterface $event): void {
+    $session = $event->getSubject()->getRequest()->getSession();
+    // wherever your login code records the sign-in time
+    if ((int)$session->read('Login.time') < time() - 900) {
+        $event->stopPropagation();
+        $event->setResult(__('Please sign in again to add a passkey.'));
+    }
+});
+```
+
+Registering a passkey gives lasting access to the account, so asking for a recent sign-in here is a good default.
+
 Attach listeners where they exist for every request, such as `Application::bootstrap()`:
 
 ```php
@@ -214,10 +232,28 @@ Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](d
 - **Deactivated users.** A sign-in is refused when the user row is gone or `users.activeColumn` is false, even though the passkey itself is still valid.
 - **Rate limiting.** None by default. `login/start` is open to anonymous callers, so bind a `RateLimiterInterface` in production.
 - **Email hint.** With `login.emailHint` enabled, `login/start` returns the credential ids of the account behind an email address. That tells anyone whether the address has passkeys. Leave it off unless you need sign-in with security keys that hold no account information.
-- **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case.
+- **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case, and removed on a sign-in without it. Clear it in your logout too; the plugin does not see the logout.
+- **Replay.** A login challenge is consumed with `Cache::add()`, which is only atomic on Redis, Memcached and APCu. With the File engine two finishes racing on the same challenge can both pass the cache check (the session-bound challenge list and the signature counter still apply). Point `cache` at an atomic engine in production.
+- **`Security.salt`.** The default user handle is an HMAC of the user id with the salt. Changing the salt makes every existing passkey unusable. If you must rotate it, set `users.userHandle` to keep the old handles.
+- **Authorization.** With `cakephp/authorization`, the plugin marks its own actions as checked, because they verify the user themselves. Request-level policies (a request policy, TinyAuth) still run before them; allow the plugin routes there.
 - **Synced passkeys** from iCloud Keychain or Google Password Manager report a signature counter of 0. That is accepted. A counter that goes backwards is refused.
 
 More in [docs/SecurityModel.md](docs/SecurityModel.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
+
+## Moving existing passkeys
+
+If your app stored passkeys before it used this plugin, the authenticators know those users by the handle your old code chose, and a sign-in is checked against it. Keep that handle with `users.userHandle`:
+
+```php
+'users' => [
+    // the old code used the packed integer id
+    'userHandle' => fn (\Cake\Datasource\EntityInterface $user): string => pack('J', $user->get('id')),
+],
+```
+
+New passkeys then get the same handle. Existing EdDSA passkeys (common on hardware keys) sign in as long as PHP has the sodium extension; new passkeys are created with ES256 or RS256.
+
+If your app already has a `passkeys` table, do not run the plugin's migration. Add any column the plugin's `config/Migrations/*_CreatePasskeys.php` has and yours lacks in a migration of your own (keep the binary types for `credential_id`, `public_key` and `aaguid`), then record the plugin migration as done with `bin/cake migrations mark_migrated -p CakePasskeys`.
 
 ## Recovery
 

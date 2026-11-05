@@ -25,7 +25,7 @@ return [
         ],
         'cache' => 'default',
         'mfa' => ['sessionFlag' => 'CakePasskeys.mfa_satisfied'],
-        'session' => ['userIdKey' => 'Auth.id'],
+        'session' => ['userIdKey' => 'Auth.id', 'persistIdentity' => true],
         'rateLimiter' => null,
         'urlPrefix' => '/passkeys',
         'identityResolver' => null,

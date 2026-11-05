@@ -48,6 +48,10 @@ return [
             // Boolean column, e.g. 'is_active'. Users where it is false
             // cannot register or sign in.
             'activeColumn' => null,
+            // Closure (EntityInterface $user): string for the WebAuthn user
+            // handle, at most 64 bytes. Only for passkeys registered before
+            // the plugin was used; null uses an HMAC of the id.
+            'userHandle' => null,
             // Type of `passkeys.user_id`: integer, biginteger, uuid or
             // string. Read by the migration, so set it before migrating.
             'idType' => 'integer',
@@ -60,9 +64,13 @@ return [
         'identityResolver' => null,
 
         'session' => [
-            // Session key the user id is written to after a passkey sign-in,
-            // and read from when no identity attribute is present. Empty
-            // string to write nothing and rely on the afterLogin event.
+            // With cakephp/authentication loaded, hand the signed-in user row
+            // to its persistIdentity() instead of writing userIdKey.
+            'persistIdentity' => true,
+            // Session key the user id is written to after a passkey sign-in
+            // (skipped when the persisted identity sits under the same root
+            // key), and read from when no identity attribute is present.
+            // Empty string to write nothing and rely on the afterLogin event.
             'userIdKey' => 'Auth.id',
         ],
 

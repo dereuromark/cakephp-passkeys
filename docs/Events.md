@@ -4,12 +4,19 @@ The plugin dispatches four events on the global event manager.
 
 ## Events
 
-| Event | Subject | Extra data | Fired from |
-| --- | --- | --- | --- |
-| `CakePasskeys.afterRegister` | `CakePasskeys\Event\PasskeyEvent` | none | `registerFinish` |
-| `CakePasskeys.afterLogin` | `CakePasskeys\Event\PasskeyEvent` | none | `loginFinish` |
-| `CakePasskeys.afterRename` | `CakePasskeys\Event\PasskeyEvent` | `['old' => $old, 'new' => $new]` | `rename` |
-| `CakePasskeys.afterDelete` | `CakePasskeys\Event\PasskeyEvent` | none | `delete` |
+| Event | Extra data | Fired from |
+| --- | --- | --- |
+| `CakePasskeys.afterRegister` | none | `registerFinish` |
+| `CakePasskeys.afterLogin` | none | `loginFinish` |
+| `CakePasskeys.afterRename` | `['old' => $old, 'new' => $new]` | `rename` |
+| `CakePasskeys.afterDelete` | none | `delete` |
+| `CakePasskeys.beforeRegister` | `['user' => PasskeyUserInterface]`, no payload | `registerStart`, `registerFinish` |
+
+A listener that stops `beforeRegister` refuses the registration with a 403. A string set as result becomes the error message.
+
+An `afterLogin` listener can set an array as result; its keys are added to the JSON answer of `login/finish` (the plugin's own keys win). Use it to hand an API token to a client that does not run on cookies.
+
+The subject of every event is the plugin's `PasskeysController`, so a listener can reach the request and the session through `$event->getSubject()->getRequest()`. The payload is a `CakePasskeys\Event\PasskeyEvent` under `$event->getData('event')`.
 
 ## Event payload
 
@@ -56,5 +63,6 @@ with the event names in its `implementedEvents()`.
 ## What the plugin leaves to you
 
 - It writes no audit record. Do that in a listener.
-- It does not build your application's identity after a sign-in. It writes the user id to the configured session key and dispatches `afterLogin`.
+- With `cakephp/authentication` it persists the user as identity after a sign-in; without it, it only writes the user id to the configured session key. Anything else a login does in your app (timestamps, flags) belongs in an `afterLogin` listener.
+- It does not decide who may register a passkey beyond being signed in. Stop `beforeRegister` for anything stricter, such as a recent sign-in.
 - `getUserHandle()` returns the opaque handle the authenticator knows the user by, the same value for all four events. The database id is `getPasskey()->user_id`.

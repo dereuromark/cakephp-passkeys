@@ -30,6 +30,9 @@
         "dereuromark/cakephp-fixture-factories": "^2.0",
         "cakedc/cakephp-phpstan": "^4.0"
     },
+    "suggest": {
+        "cakephp/authentication": "The signed-in user is then persisted as identity after a passkey sign-in."
+    },
     "autoload": {
         "psr-4": { "CakePasskeys\\": "src/" }
     },

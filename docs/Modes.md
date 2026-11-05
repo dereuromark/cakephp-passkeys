@@ -13,14 +13,15 @@ The flow:
 On success the plugin:
 
 - renews the session id
-- writes the user id to the session key in `CakePasskeys.session.userIdKey`
+- with `cakephp/authentication` loaded, persists the user row as the identity through the authentication service (replacing an identity already there)
+- writes the user id to the session key in `CakePasskeys.session.userIdKey`, unless the authenticator just stored the identity under the same root key
 - sets the session flag `CakePasskeys.mfa_satisfied` to `true` when `ceremony.userVerification` is `required`
 - dispatches `CakePasskeys.afterLogin`
 
-Your application turns that into its own notion of "signed in". Two common ways:
+With `cakephp/authentication`, that is all: the user is signed in. Without it, your application turns that into its own notion of "signed in". Two common ways:
 
 ```php
-// config: write the id where your session authenticator reads it
+// config: write the id where your own login code reads it
 'CakePasskeys' => [
     'session' => ['userIdKey' => 'Auth.id'],
 ],
@@ -30,6 +31,7 @@ Your application turns that into its own notion of "signed in". Two common ways:
 // or build the identity yourself, in Application::bootstrap()
 EventManager::instance()->on('CakePasskeys.afterLogin', function (EventInterface $event): void {
     $userId = $event->getData('event')->getPasskey()->user_id;
+    $session = $event->getSubject()->getRequest()->getSession();
     // load the user, write your session, record the login
 });
 ```
@@ -40,7 +42,7 @@ Set `session.userIdKey` to an empty string if you only want the event.
 
 With user verification required, the authenticator checked a PIN, a fingerprint or a face before it signed. Possession of the device plus that check are two factors. If your application has a step that asks for a second factor after sign-in, it can skip it when the flag is set.
 
-The flag is not set when you lower `ceremony.userVerification` to `preferred` or `discouraged`, because the sign-in then proves possession only.
+The flag is not set when you lower `ceremony.userVerification` to `preferred` or `discouraged`, because the sign-in then proves possession only; a flag left by an earlier sign-in is removed. Clear it in your own logout.
 
 ### Passkey as a second factor
 

@@ -7,8 +7,10 @@ namespace CakePasskeys\Test\TestCase\Service;
 use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
+use Cake\Datasource\EntityInterface;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\Service\UserResolver;
+use RuntimeException;
 
 class UserResolverTest extends TestCase
 {
@@ -93,6 +95,24 @@ class UserResolverTest extends TestCase
         $found = (new UserResolver())->byHandle($handle);
         $this->assertNotNull($found);
         $this->assertSame(1, $found->getUserId());
+    }
+
+    public function testCustomUserHandleClosureIsUsed(): void
+    {
+        Configure::write('CakePasskeys.users.userHandle', fn (EntityInterface $user): string => pack('J', $user->get('id')));
+        $user = (new UserResolver())->byId(1);
+        $this->assertNotNull($user);
+        $this->assertSame(pack('J', 1), $user->getPasskeyUserHandle());
+        $this->assertSame(1, (new UserResolver())->byHandle(pack('J', 1))?->getUserId());
+    }
+
+    public function testCustomUserHandleLongerThan64BytesIsRejected(): void
+    {
+        Configure::write('CakePasskeys.users.userHandle', fn (EntityInterface $user): string => str_repeat('x', 65));
+        $user = (new UserResolver())->byId(1);
+        $this->assertNotNull($user);
+        $this->expectException(RuntimeException::class);
+        $user->getPasskeyUserHandle();
     }
 
     public function testUnknownIdReturnsNull(): void
