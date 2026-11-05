@@ -113,7 +113,7 @@ $this->addHelper('CakePasskeys.Passkeys');
 
 Shows the user's passkeys with rename and delete, and an "Add a passkey" button until the limit is reached.
 
-Each passkey is labeled "Synced" when the authenticator reports it as backed up (iCloud Keychain, Google Password Manager and the like), or "This device only" when it cannot be synced at all. Such a passkey is lost with the device. Passkeys registered before the plugin stored these flags show no label until their next sign-in.
+Each passkey is labeled "Synced" when the authenticator reports it as backed up (iCloud Keychain, Google Password Manager and the like), or "This device only" when it cannot be synced at all. Such a passkey is lost with the device or security key it lives on. Passkeys registered before the plugin stored these flags show no label until their next sign-in.
 
 To nudge users who have no passkey yet, or whose passkeys are all bound to one device, render the RegisterNudge cell, for example in the layout:
 

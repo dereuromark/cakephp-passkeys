@@ -20,8 +20,8 @@ if ($hidden) {
      data-passkey-nudge-days="<?= (int)$redisplayAfterDays ?>"
      hidden>
     <?php if ($reason === NudgePolicy::REASON_DEVICE_BOUND_ONLY) { ?>
-        <strong><?= __d('passkeys', 'Keep access if you lose this device') ?></strong>
-        <p><?= __d('passkeys', 'Your passkeys only work on the device they were created on. Add a second passkey, for example on your phone or in a password manager, so you can still sign in without it.') ?></p>
+        <strong><?= __d('passkeys', 'Keep access if you lose a device') ?></strong>
+        <p><?= __d('passkeys', 'Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in.') ?></p>
         <button type="button" class="btn btn-primary btn-sm"
                 data-passkey-register data-passkey-name-prompt>
             <?= __d('passkeys', 'Add another passkey') ?>

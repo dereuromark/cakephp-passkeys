@@ -164,8 +164,8 @@ msgstr "Synced"
 msgid "This device only"
 msgstr "This device only"
 
-msgid "Keep access if you lose this device"
-msgstr "Keep access if you lose this device"
+msgid "Keep access if you lose a device"
+msgstr "Keep access if you lose a device"
 
-msgid "Your passkeys only work on the device they were created on. Add a second passkey, for example on your phone or in a password manager, so you can still sign in without it."
-msgstr "Your passkeys only work on the device they were created on. Add a second passkey, for example on your phone or in a password manager, so you can still sign in without it."
+msgid "Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in."
+msgstr "Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in."

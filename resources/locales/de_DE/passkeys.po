@@ -164,8 +164,8 @@ msgstr "Synchronisiert"
 msgid "This device only"
 msgstr "Nur auf diesem Gerät"
 
-msgid "Keep access if you lose this device"
-msgstr "Behalte den Zugang, falls du dieses Gerät verlierst"
+msgid "Keep access if you lose a device"
+msgstr "Behalte den Zugang, falls du ein Gerät verlierst"
 
-msgid "Your passkeys only work on the device they were created on. Add a second passkey, for example on your phone or in a password manager, so you can still sign in without it."
-msgstr "Deine Passkeys funktionieren nur auf dem Gerät, auf dem sie erstellt wurden. Füge einen zweiten Passkey hinzu, zum Beispiel auf deinem Handy oder in einem Passwort-Manager, damit du dich auch ohne dieses Gerät anmelden kannst."
+msgid "Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in."
+msgstr "Deine Passkeys werden nicht synchronisiert. Jeder liegt auf nur einem Gerät oder Sicherheitsschlüssel und geht mit ihm verloren. Füge einen zweiten Passkey hinzu, zum Beispiel auf deinem Handy oder in einem Passwort-Manager, damit du dich weiterhin anmelden kannst."
