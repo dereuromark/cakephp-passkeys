@@ -369,7 +369,7 @@ class WebAuthnService
         }
 
         $passkey->set('sign_count', $newCounter);
-        $this->applyBackupState($passkey, $updated);
+        $this->applyBackupState($passkey, $assertionResponse);
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
@@ -465,7 +465,7 @@ class WebAuthnService
         }
 
         $passkey->set('sign_count', $newCounter);
-        $this->applyBackupState($passkey, $updated);
+        $this->applyBackupState($passkey, $assertionResponse);
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
@@ -667,19 +667,25 @@ class WebAuthnService
     }
 
     /**
-     * BS changes as a passkey gets synced; BE is only filled in when unknown.
+     * BS changes as a passkey gets synced. BE must not change once known
+     * (WebAuthn L3); older library versions do not check that themselves.
      *
      * @param \CakePasskeys\Model\Entity\Passkey $passkey
-     * @param \Webauthn\CredentialRecord $record Record the assertion check updated
+     * @param \Webauthn\AuthenticatorAssertionResponse $assertionResponse Verified assertion
+     *
+     * @throws \CakePasskeys\Service\WebAuthnException
      *
      * @return void
      */
-    private function applyBackupState(Passkey $passkey, CredentialRecord $record): void
+    private function applyBackupState(Passkey $passkey, AuthenticatorAssertionResponse $assertionResponse): void
     {
-        if ($passkey->backup_eligible === null) {
-            $passkey->set('backup_eligible', $record->backupEligible);
+        $authData = $assertionResponse->authenticatorData;
+        $eligible = $authData->isBackupEligible();
+        if ($passkey->backup_eligible !== null && $passkey->backup_eligible !== $eligible) {
+            throw new WebAuthnException('Passkey verification failed.');
         }
-        $passkey->set('backed_up', $record->backupStatus);
+        $passkey->set('backup_eligible', $eligible);
+        $passkey->set('backed_up', $authData->isBackedUp());
     }
 
     /**
