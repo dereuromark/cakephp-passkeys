@@ -121,7 +121,7 @@ To nudge users who have no passkey yet, or whose passkeys are all bound to one d
 <?= $this->cell('CakePasskeys.RegisterNudge') ?>
 ```
 
-A dismissed nudge stays hidden for `nudge.redisplayAfterDays`.
+A dismissed nudge stays hidden for `nudge.redisplayAfterDays`, remembered per browser. The two variants are dismissed separately.
 
 ### 3. Offer the sign-in
 
