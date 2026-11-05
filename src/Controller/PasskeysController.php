@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CakePasskeys\Controller;
 
+use ArrayAccess;
 use Cake\Controller\Controller;
 use Cake\Core\Configure;
 use Cake\Event\Event;
@@ -597,6 +598,13 @@ class PasskeysController extends Controller
             return false;
         }
 
+        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
+        if (!$identity instanceof ArrayAccess) {
+            // cakephp/authentication only stores entities and other ArrayAccess
+            // identities; anything else falls back to session.userIdKey.
+            return false;
+        }
+
         // The Session authenticator does not overwrite an identity that is
         // already there, so a sign-in on top of another user would keep them.
         if (method_exists($service, 'clearIdentity')) {
@@ -607,7 +615,6 @@ class PasskeysController extends Controller
 
         $session = $this->getRequest()->getSession();
         $before = $session->read($rootKey);
-        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
         $result = $service->persistIdentity($this->getRequest(), $this->getResponse(), $identity);
         $this->setRequest($result['request']);
         $this->setResponse($result['response']);

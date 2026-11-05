@@ -41,10 +41,10 @@ class CacheRateLimiter implements RateLimiterInterface
             $count = false;
         }
         if ($count === false) {
-            $count = (int)Cache::read($bucket, $engine) + 1;
-            // A count that cannot be stored would never fill up; refuse
-            // rather than let every request through.
+            // A count that cannot be read or stored would never fill up;
+            // refuse rather than let every request through.
             try {
+                $count = (int)Cache::read($bucket, $engine) + 1;
                 if (!Cache::write($bucket, $count, $engine)) {
                     return false;
                 }
