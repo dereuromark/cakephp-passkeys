@@ -54,6 +54,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `rpId` | `'localhost'` | Relying party id. A passkey is bound to it for good, so choose it before users enroll. |
 | `rpName` | `'My App'` | Name the authenticator shows. |
 | `allowedOrigins` | `null` | Origins a response may come from. Without a list, any HTTPS origin on the `rpId` or a subdomain of it is accepted, on any port. Set it in production. |
+| `allowedAaguids` | `null` | AAGUIDs (authenticator models) a new passkey may come from. `null` or `[]` accepts any authenticator. A policy filter, not proof of the make. See [Security](#security). |
 | `users.table` | `'Users'` | Table your users live in. |
 | `users.columns` | `id`, `email`, `name` | Column names for the id, the email and the display name. |
 | `users.activeColumn` | `null` | Boolean column. Users where it is false cannot register or sign in. |
@@ -264,6 +265,7 @@ The plugin answers with absolute URLs, for example `{"enroll": "https://example.
 - **Replay.** A login challenge is consumed with `Cache::add()`, which is only atomic on Redis, Memcached and APCu. With the File engine two finishes racing on the same challenge can both pass the cache check (the session-bound challenge list and the signature counter still apply). Point `cache` at an atomic engine in production.
 - **`Security.salt`.** The default user handle is an HMAC of the user id with the salt. Changing the salt makes every existing passkey unusable. If you must rotate it, set `users.userHandle` to keep the old handles.
 - **Authorization.** With `cakephp/authorization`, the plugin marks its own actions as checked, because they verify the user themselves. Request-level policies (a request policy, TinyAuth) still run before them; allow the plugin routes there.
+- **Authenticator allowlist.** `allowedAaguids` limits new passkeys to the listed AAGUIDs (case-insensitive UUIDs, for example `['cb69481e-8ff7-4039-93ec-0a2729a154a8']` for a YubiKey 5). A registration from any other model, or one that reports no AAGUID (all zeros), is refused with a 400. Passkeys stored before the list was set keep working. The AAGUID is reported by the authenticator itself: with the default attestation `none` nothing proves it, and a modified or software authenticator can claim any value. Treat the list as a policy filter that keeps honest users on the devices you support, not as proof of the hardware. The plugin does not verify attestation statements; see [docs/SecurityModel.md](docs/SecurityModel.md#authenticator-allowlist).
 - **Synced passkeys** from iCloud Keychain or Google Password Manager report a signature counter of 0. That is accepted. A counter that goes backwards is refused.
 
 More in [docs/SecurityModel.md](docs/SecurityModel.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
@@ -303,4 +305,4 @@ Each deletion dispatches `CakePasskeys.afterDelete` with the command as subject.
 ## Limitations
 
 - A passkey sign-in is a complete sign-in. Using a passkey as a second factor after a password is not supported: the login endpoints are anonymous and do not tie the passkey to the account that passed the first factor.
-- No attestation policy. Any authenticator is accepted.
+- No attestation verification. `allowedAaguids` filters on the AAGUID the authenticator reports, which is not proven.

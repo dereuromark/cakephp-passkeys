@@ -47,6 +47,7 @@ class SoftAuthenticator
      * @param string $rpId Relying party id the credential is scoped to
      * @param string $origin Origin reported in the client data
      * @param int $counter Signature counter; 0 behaves like a synced passkey
+     * @param string $aaguid AAGUID reported at registration, in UUID form
      *
      * @throws \RuntimeException
      */
@@ -54,6 +55,7 @@ class SoftAuthenticator
         private string $rpId = 'localhost',
         public string $origin = 'https://localhost',
         public int $counter = 0,
+        public string $aaguid = '00000000-0000-0000-0000-000000000000',
     ) {
         $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_EC, 'curve_name' => 'prime256v1']);
         if ($key === false) {
@@ -83,7 +85,7 @@ class SoftAuthenticator
         $this->userHandle = $this->decode((string)$options['user']['id']);
 
         $authData = $this->authenticatorData(self::FLAG_ATTESTED_DATA)
-            . str_repeat("\0", 16)
+            . (string)hex2bin(str_replace('-', '', $this->aaguid))
             . pack('n', strlen($this->credentialId))
             . $this->credentialId
             . (string)$this->coseKey();

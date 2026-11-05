@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 21:37+0000\n"
+"POT-Creation-Date: 2026-11-05 21:40+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -78,6 +78,9 @@ msgid "Too many attempts. Try again later."
 msgstr ""
 
 msgid "You cannot add a passkey right now."
+msgstr ""
+
+msgid "This type of passkey is not allowed here."
 msgstr ""
 
 msgid "Sign in with a passkey"

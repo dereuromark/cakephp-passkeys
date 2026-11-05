@@ -25,6 +25,11 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class WebAuthnServiceTest extends TestCase
 {
+    /**
+     * @var string
+     */
+    private const YUBIKEY_5 = 'cb69481e-8ff7-4039-93ec-0a2729a154a8';
+
     private WebAuthnService $service;
 
     protected function setUp(): void
@@ -41,6 +46,7 @@ class WebAuthnServiceTest extends TestCase
         Configure::write('CakePasskeys.maxPerUser', 5);
         Configure::write('CakePasskeys.challengeTtl', 300);
         Configure::write('CakePasskeys.cache', 'default');
+        Configure::write('CakePasskeys.allowedAaguids', null);
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -331,6 +337,81 @@ class WebAuthnServiceTest extends TestCase
             'challengeKey' => $options['challengeKey'],
             'response' => $authenticator->authenticate($options),
         ]);
+    }
+
+    /**
+     * @return void
+     */
+    public function testRegistrationAcceptsAllowedAaguidCaseInsensitively(): void
+    {
+        Configure::write('CakePasskeys.allowedAaguids', ['CB69481E-8FF7-4039-93EC-0A2729A154A8']);
+
+        $passkey = $this->register($this->makeUser(1), new SoftAuthenticator(aaguid: self::YUBIKEY_5));
+
+        $this->assertSame('YubiKey 5', $passkey->aaguid_label);
+    }
+
+    /**
+     * @param string $aaguid
+     *
+     * @return void
+     */
+    #[DataProvider('provideRefusedAaguids')]
+    public function testRegistrationRefusesAaguidOutsideAllowlist(string $aaguid): void
+    {
+        Configure::write('CakePasskeys.allowedAaguids', [self::YUBIKEY_5]);
+
+        try {
+            $this->register($this->makeUser(1), new SoftAuthenticator(aaguid: $aaguid));
+            $this->fail('The registration was not refused.');
+        } catch (WebAuthnException $e) {
+            $this->assertSame('This type of passkey is not allowed here.', $e->getMessage());
+        }
+        $this->assertSame(0, $this->getTableLocator()->get('CakePasskeys.Passkeys')->find()->count());
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function provideRefusedAaguids(): array
+    {
+        return [
+            'other model' => ['adce0002-35bc-c60a-648b-0b25f1f05503'],
+            'zero aaguid' => ['00000000-0000-0000-0000-000000000000'],
+        ];
+    }
+
+    /**
+     * @return void
+     */
+    public function testEmptyAllowlistAcceptsAnyAuthenticator(): void
+    {
+        Configure::write('CakePasskeys.allowedAaguids', []);
+
+        $passkey = $this->register($this->makeUser(1), new SoftAuthenticator());
+
+        $this->assertNull($passkey->aaguid);
+    }
+
+    /**
+     * The list only applies to new registrations; passkeys stored before
+     * keep signing in.
+     *
+     * @return void
+     */
+    public function testAllowlistDoesNotAffectExistingPasskeys(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        Configure::write('CakePasskeys.allowedAaguids', [self::YUBIKEY_5]);
+
+        $options = $this->service->startLogin();
+        $passkey = $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+
+        $this->assertSame(1, $passkey->user_id);
     }
 
     /**

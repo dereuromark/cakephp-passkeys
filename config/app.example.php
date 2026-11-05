@@ -25,6 +25,14 @@ return [
         // accepted, on any port. http://localhost always works.
         'allowedOrigins' => null,
 
+        // AAGUIDs (authenticator models) a new passkey may come from, e.g.
+        // ['cb69481e-8ff7-4039-93ec-0a2729a154a8']. Case-insensitive. With
+        // null or [], any authenticator is accepted. When set, passkeys
+        // without an AAGUID are refused too. Existing passkeys are not
+        // affected. The AAGUID is reported by the authenticator and not
+        // verified, so this is a policy filter, not proof of the make.
+        'allowedAaguids' => null,
+
         // Passkeys per user. 0 for no limit.
         'maxPerUser' => 5,
 

@@ -15,6 +15,7 @@ return [
             'idType' => 'integer',
         ],
         'allowedOrigins' => null,
+        'allowedAaguids' => null,
         'login' => ['emailHint' => false],
         'afterLoginRedirect' => '/',
         'ceremony' => [

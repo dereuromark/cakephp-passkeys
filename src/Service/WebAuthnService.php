@@ -35,6 +35,7 @@ use Webauthn\PublicKeyCredentialRequestOptions;
 use Webauthn\PublicKeyCredentialRpEntity;
 use Webauthn\PublicKeyCredentialUserEntity;
 use Webauthn\TrustPath\EmptyTrustPath;
+use function Cake\I18n\__d;
 
 /**
  * WebAuthn ceremony service, backed by web-auth/webauthn-lib (Spomky-Labs).
@@ -242,6 +243,7 @@ class WebAuthnService
         });
 
         $aaguidString = $source->aaguid->__toString();
+        $this->assertAllowedAaguid($aaguidString);
         $aaguidBytes = $aaguidString !== self::ZERO_UUID ? $this->uuidToBytes($aaguidString) : null;
         $aaguidLabel = $aaguidBytes !== null ? $this->aaguidResolver->labelFor($aaguidBytes) : null;
 
@@ -758,6 +760,31 @@ class WebAuthnService
         $table = $this->fetchTable('CakePasskeys.Passkeys');
 
         return $table;
+    }
+
+    /**
+     * Applies `CakePasskeys.allowedAaguids`. The AAGUID is self-reported by
+     * the authenticator unless attestation is verified, so this is a policy
+     * filter, not proof of the make.
+     *
+     * @param string $aaguid AAGUID in UUID form.
+     *
+     * @throws \CakePasskeys\Service\WebAuthnException
+     *
+     * @return void
+     */
+    private function assertAllowedAaguid(string $aaguid): void
+    {
+        $allowed = Configure::read('CakePasskeys.allowedAaguids');
+        if (!is_array($allowed) || !$allowed) {
+            return;
+        }
+        $allowed = array_map(static fn (mixed $value): string => strtolower(trim((string)$value)), $allowed);
+        $aaguid = strtolower($aaguid);
+        // The zero AAGUID carries no make, so it can never match.
+        if ($aaguid === self::ZERO_UUID || !in_array($aaguid, $allowed, true)) {
+            throw new WebAuthnException(__d('passkeys', 'This type of passkey is not allowed here.'));
+        }
     }
 
     /**
