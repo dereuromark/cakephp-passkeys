@@ -11,6 +11,14 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v4
+            - name: Tag matches package.json and JS_VERSION
+              run: |
+                  npm_version=$(node -p "require('./package.json').version")
+                  php_version=$(sed -nE "s/.*JS_VERSION = '([^']+)'.*/\1/p" src/CakePasskeysPlugin.php)
+                  if [ "$GITHUB_REF_NAME" != "$npm_version" ] || [ "$GITHUB_REF_NAME" != "$php_version" ]; then
+                      echo "::error::Tag $GITHUB_REF_NAME, package.json $npm_version, JS_VERSION $php_version. Bump both and merge before tagging."
+                      exit 1
+                  fi
             - uses: actions/setup-node@v4
               with:
                   node-version: '20'

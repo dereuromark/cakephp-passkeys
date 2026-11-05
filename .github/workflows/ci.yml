@@ -81,3 +81,19 @@ jobs:
               run: composer i18n-check
             - name: Lint catalogs
               run: composer i18n-lint
+
+    versions:
+        name: Version lockstep
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read
+        steps:
+            - uses: actions/checkout@v4
+              with:
+                  persist-credentials: false
+            - name: package.json and JS_VERSION agree
+              run: |
+                  npm_version=$(node -p "require('./package.json').version")
+                  php_version=$(sed -nE "s/.*JS_VERSION = '([^']+)'.*/\1/p" src/CakePasskeysPlugin.php)
+                  echo "package.json: $npm_version, JS_VERSION: $php_version"
+                  test "$npm_version" = "$php_version"
