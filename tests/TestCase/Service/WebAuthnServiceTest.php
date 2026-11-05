@@ -16,6 +16,7 @@ use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
 use CakePasskeys\Service\ChallengeStore;
 use CakePasskeys\Service\ConventionUserAdapter;
+use CakePasskeys\Service\UnknownCredentialException;
 use CakePasskeys\Service\UserResolver;
 use CakePasskeys\Service\WebAuthnException;
 use CakePasskeys\Service\WebAuthnService;
@@ -250,6 +251,49 @@ class WebAuthnServiceTest extends TestCase
         return [
             'deactivated' => ['UPDATE users SET is_active = 0 WHERE id = 1'],
             'deleted' => ['DELETE FROM users WHERE id = 1'],
+        ];
+    }
+
+    /**
+     * Only a credential the server no longer stores is reported as unknown.
+     * A passkey whose account is gone or deactivated is still on record.
+     *
+     * @param string $sql
+     * @param bool $unknown
+     *
+     * @return void
+     */
+    #[DataProvider('unknownCredentialCases')]
+    public function testLoginFlagsOnlyCredentialsTheServerNoLongerKnows(string $sql, bool $unknown): void
+    {
+        Configure::write('CakePasskeys.users.activeColumn', 'is_active');
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        $this->connection()->execute($sql);
+
+        $options = $this->service->startLogin();
+
+        try {
+            $this->service->finishLogin([
+                'challengeKey' => $options['challengeKey'],
+                'response' => $authenticator->authenticate($options),
+            ]);
+            $this->fail('Login must fail.');
+        } catch (WebAuthnException $e) {
+            $this->assertSame($unknown, $e instanceof UnknownCredentialException);
+            $this->assertSame('Unknown passkey credential.', $e->getMessage());
+        }
+    }
+
+    /**
+     * @return array<string, array{string, bool}>
+     */
+    public static function unknownCredentialCases(): array
+    {
+        return [
+            'passkey deleted' => ['DELETE FROM passkeys', true],
+            'account deleted' => ['DELETE FROM users WHERE id = 1', false],
+            'account deactivated' => ['UPDATE users SET is_active = 0 WHERE id = 1', false],
         ];
     }
 

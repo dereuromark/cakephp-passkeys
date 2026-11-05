@@ -13,7 +13,8 @@
  */
 
 import { authenticate, conditional, isConditionalSupported, isSupported, reauth, register, remove, rename } from './core';
-import type { Endpoints } from './types';
+import { signalAcceptedCredentials, signalCurrentUser, signalsEnabled } from './signals';
+import type { Endpoints, UserSignalData } from './types';
 
 export function bind(root: ParentNode = document): void {
     const endpoints = readEndpoints(root);
@@ -136,6 +137,17 @@ export function bind(root: ParentNode = document): void {
         });
     });
 
+    // The Manager cell carries the signed-in user's credential ids and names.
+    root.querySelectorAll<HTMLElement>('[data-passkey-signals]').forEach((el) => {
+        if (el.dataset.passkeyBound === '1') return;
+        el.dataset.passkeyBound = '1';
+        if (!signalsEnabled(endpoints)) return;
+        const data = readSignals(el);
+        if (!data) return;
+        void signalAcceptedCredentials(data);
+        void signalCurrentUser(data);
+    });
+
     root.querySelectorAll<HTMLInputElement>('[data-passkey-conditional]').forEach((input) => {
         if (input.dataset.passkeyBound === '1') return;
         input.dataset.passkeyBound = '1';
@@ -162,6 +174,15 @@ function readEndpoints(root: ParentNode): Endpoints | null {
     if (!meta) return null;
     try {
         return JSON.parse(meta.content) as Endpoints;
+    } catch {
+        return null;
+    }
+}
+
+function readSignals(el: HTMLElement): UserSignalData | null {
+    try {
+        const data = JSON.parse(el.dataset.passkeySignals ?? '');
+        return data && typeof data === 'object' ? data as UserSignalData : null;
     } catch {
         return null;
     }

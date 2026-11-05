@@ -13,7 +13,16 @@ import {
     PasskeyNotSupportedError,
     PasskeyServerError,
 } from './errors';
-import type { AuthResult, Endpoints, Messages, PasskeyResult } from './types';
+import { signalAcceptedCredentials, signalsEnabled, signalUnknownCredential, UNKNOWN_CREDENTIAL } from './signals';
+import type { AuthResult, DeleteResult, Endpoints, Messages, PasskeyResult, SignalData } from './types';
+
+export {
+    signalAcceptedCredentials,
+    signalCurrentUser,
+    signalsEnabled,
+    signalUnknownCredential,
+    UNKNOWN_CREDENTIAL,
+} from './signals';
 
 // --- base64url helpers (ported verbatim from passkey.js) ------------------
 
@@ -92,8 +101,39 @@ async function postJson(url: string, csrfToken?: string, body?: unknown): Promis
     const init: RequestInit = { method: 'POST', credentials: 'same-origin', headers };
     if (body !== undefined) init.body = JSON.stringify(body);
     const res = await fetch(url, init);
-    if (!res.ok) throw new PasskeyServerError(await res.text(), res.status);
+    if (!res.ok) {
+        const text = await res.text();
+        throw new PasskeyServerError(text, res.status, errorCode(text));
+    }
     return res.json();
+}
+
+function errorCode(body: string): string | undefined {
+    try {
+        const parsed = JSON.parse(body);
+        return parsed && typeof parsed.error === 'string' ? parsed.error : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/** Posts the assertion; on an unknown credential, tells the authenticator before rethrowing. */
+async function finishLogin(
+    opts: { endpoints: Endpoints; csrfToken?: string },
+    options: any,
+    credential: PublicKeyCredential,
+): Promise<AuthResult> {
+    try {
+        return await postJson(opts.endpoints.loginFinish, token(opts), {
+            response: serializeAssertion(credential),
+            challengeKey: options.challengeKey,
+        }) as AuthResult;
+    } catch (e) {
+        if (e instanceof PasskeyServerError && e.code === UNKNOWN_CREDENTIAL && signalsEnabled(opts.endpoints)) {
+            await signalUnknownCredential(String(options.rpId ?? ''), credential.id);
+        }
+        throw e;
+    }
 }
 
 // --- capability probes ----------------------------------------------------
@@ -196,10 +236,7 @@ export async function authenticate(opts: AuthOpts): Promise<AuthResult> {
         throw classify(e);
     }
 
-    return await postJson(opts.endpoints.loginFinish, token(opts), {
-        response: serializeAssertion(credential),
-        challengeKey: options.challengeKey,
-    }) as AuthResult;
+    return await finishLogin(opts, options, credential);
 }
 
 export async function conditional(opts: ConditionalOpts): Promise<void> {
@@ -222,10 +259,7 @@ export async function conditional(opts: ConditionalOpts): Promise<void> {
     }
     if (!credential) return;
 
-    const result = await postJson(opts.endpoints.loginFinish, token(opts), {
-        response: serializeAssertion(credential),
-        challengeKey: options.challengeKey,
-    }) as AuthResult;
+    const result = await finishLogin(opts, options, credential);
     opts.onMatch(result);
 }
 
@@ -271,6 +305,10 @@ export async function rename(opts: ManageOpts & { name: string; emoji?: string |
     return data.passkey;
 }
 
-export async function remove(opts: ManageOpts): Promise<void> {
-    await postJson(withId(opts.endpoints.delete, opts.id), opts.csrfToken ?? opts.endpoints.csrfToken, {});
+export async function remove(opts: ManageOpts): Promise<DeleteResult> {
+    const data = await postJson(withId(opts.endpoints.delete, opts.id), opts.csrfToken ?? opts.endpoints.csrfToken, {}) as DeleteResult;
+    if (signalsEnabled(opts.endpoints) && data && Array.isArray(data.acceptedCredentialIds)) {
+        await signalAcceptedCredentials(data as SignalData);
+    }
+    return data;
 }

@@ -7,6 +7,8 @@ namespace CakePasskeys\View\Cell;
 use Cake\Core\Configure;
 use Cake\View\Cell;
 use CakePasskeys\Service\IdentityResolver;
+use CakePasskeys\Service\Signals;
+use CakePasskeys\Service\UserResolver;
 use function Cake\I18n\__d;
 
 class ManagerCell extends Cell
@@ -41,8 +43,17 @@ class ManagerCell extends Cell
             ->all()
             ->toArray();
 
+        $signals = null;
+        if (Signals::enabled()) {
+            $user = (new UserResolver())->byId($userId);
+            if ($user !== null) {
+                $signals = (new Signals())->currentUser($user);
+            }
+        }
+
         $maxPerUser = (int)Configure::read('CakePasskeys.maxPerUser', 5);
         $this->set([
+            'signals' => $signals,
             'hidden' => false,
             'passkeys' => $passkeys,
             'atCap' => count($passkeys) >= $maxPerUser,

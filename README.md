@@ -78,6 +78,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `docsUrl` | `null` | Link shown in the empty state of the Manager cell. |
 | `nudge.enabled` | `true` | Show the RegisterNudge cell to signed-in users without a passkey. |
 | `nudge.redisplayAfterDays` | `14` | Days until a dismissed nudge shows again. |
+| `signals` | `true` | Keep the browser's passkey list in sync through the WebAuthn Signal API. See [Keeping passkey lists in sync](#keeping-passkey-lists-in-sync). |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
 | `wellKnown.enroll`, `wellKnown.manage` | `null` | URLs (string or URL array) served at `/.well-known/passkey-endpoints`. See [Password manager links](#password-manager-links). |
 | `notify.onRegister` | `false` | Mail the user when a passkey is added to their account. See [Alert mail](#alert-mail-for-new-passkeys). |
@@ -267,6 +268,16 @@ import { register, authenticate, conditional, reauth, rename, remove } from '@de
 ```
 
 Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](docs/JsApi.md).
+
+### Keeping passkey lists in sync
+
+Browsers with the WebAuthn Signal API (Chrome 132 and later) are told when the server's view changes, so password managers do not keep offering passkeys that no longer work:
+
+- A sign-in with a passkey the server does not store calls `signalUnknownCredential()`, and the browser can remove it.
+- After a delete, and whenever the Manager cell loads, `signalAllAcceptedCredentials()` lists the signed-in user's remaining passkeys.
+- The Manager cell also sends `signalCurrentUserDetails()` with the current email and display name, so a renamed account shows correctly.
+
+Other browsers are unaffected, and a refused signal never breaks the page. Set `CakePasskeys.signals` to `false` to turn it off.
 
 ## Password manager links
 
