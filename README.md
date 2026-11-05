@@ -50,6 +50,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 
 | Key | Default | Purpose |
 | --- | --- | --- |
+| `enabled` | `true` | Master switch. With `false` the endpoints answer 404 and the cells and helper render nothing. |
 | `rpId` | `'localhost'` | Relying party id. A passkey is bound to it for good, so choose it before users enroll. |
 | `rpName` | `'My App'` | Name the authenticator shows. |
 | `allowedOrigins` | `null` | Origins a response may come from. Without a list, any HTTPS origin on the `rpId` or a subdomain of it is accepted, on any port. Set it in production. |
@@ -61,10 +62,21 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `identityResolver` | `null` | Closure that returns the id of the signed-in user. See [Who is signed in](#who-is-signed-in). |
 | `session.persistIdentity` | `true` | Hand the signed-in user to `cakephp/authentication` when it is loaded. See [Pick up the signed-in user](#4-pick-up-the-signed-in-user). |
 | `session.userIdKey` | `'Auth.id'` | Session key the user id is written to after a passkey sign-in. |
+| `ceremony.userVerification` | `'required'` | `required`, `preferred` or `discouraged`. Only `required` sets the MFA flag. |
+| `ceremony.residentKey` | `'preferred'` | Whether the authenticator stores the account, which sign-in without an email needs. |
+| `ceremony.attestation` | `'none'` | Attestation conveyance passed to the browser. |
+| `ceremony.timeout` | `60000` | Milliseconds the browser waits for the authenticator. |
+| `mfa.sessionFlag` | `'CakePasskeys.mfa_satisfied'` | Session key set to `true` after a user-verified sign-in. |
 | `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |
 | `maxPerUser` | `5` | Passkeys per user. `0` for no limit. |
 | `login.emailHint` | `false` | Accept an email on `login/start`. See [Security](#security). |
+| `challengeTtl` | `300` | Seconds a challenge stays valid between start and finish. |
+| `reauthWindow` | `900` | Seconds a re-confirmation counts as fresh. |
+| `cache` | `'default'` | Cache config the plugin copies for its challenges (`passkeys_challenges`) and rate limiting (`passkeys_rate_limit`). Must keep data between requests; Redis, Memcached or APCu make challenge use and rate counting atomic. |
 | `rateLimiter` | `null` | Class or instance implementing `RateLimiterInterface`. `null` uses the built-in cache-backed limiter, `false` turns limiting off. |
+| `docsUrl` | `null` | Link shown in the empty state of the Manager cell. |
+| `nudge.enabled` | `true` | Show the RegisterNudge cell to signed-in users without a passkey. |
+| `nudge.redisplayAfterDays` | `14` | Days until a dismissed nudge shows again. |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
 
 ## Usage
@@ -113,7 +125,7 @@ After a successful sign-in the plugin:
 1. renews the session id
 2. signs the user in (see below)
 3. dispatches `CakePasskeys.afterLogin`
-4. answers with `{"redirectTo": ..., "userId": ...}`, and the JavaScript navigates to `redirectTo`
+4. answers with `{"redirectTo": ..., "mfaSatisfied": ..., "userId": ...}` plus any keys an `afterLogin` listener added, and the JavaScript navigates to `redirectTo`
 
 How the user gets signed in:
 
@@ -230,7 +242,7 @@ Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](d
 - **CSRF.** Leave your CSRF protection on for the plugin's routes. `endpointsMeta()` hands the token to the JavaScript, which sends it with every request. `rename` and `delete` carry no WebAuthn challenge, so exempting them would open them to forged requests.
 - **Origin.** Set `allowedOrigins`. See the table above for what is accepted without it.
 - **Deactivated users.** A sign-in is refused when the user row is gone or `users.activeColumn` is false, even though the passkey itself is still valid.
-- **Rate limiting.** On by default: a fixed window per IP or user, counted in the `cache` engine. A full bucket answers 429. Counting is atomic only on engines with `increment()` support (Redis, Memcached, APCu). Bind your own `RateLimiterInterface` to use your app's limiter instead.
+- **Rate limiting.** On by default: a fixed window per IP or user (`reauth/finish`, `rename` and `delete` have none; each needs a challenge from a throttled start or a signed-in session), counted in the plugin's `passkeys_rate_limit` cache config (a copy of `cache`). If the count cannot be stored, the request is refused. A full bucket answers 429. Counting is atomic only on engines with `increment()` support (Redis, Memcached, APCu). Bind your own `RateLimiterInterface` to use your app's limiter instead. Behind a reverse proxy, set `App.trustProxy` so the client IP is the visitor's, or every visitor shares one sign-in bucket of 20 per minute.
 - **Email hint.** With `login.emailHint` enabled, `login/start` returns the credential ids of the account behind an email address. That tells anyone whether the address has passkeys. Leave it off unless you need sign-in with security keys that hold no account information.
 - **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case, and removed on a sign-in without it. Clear it in your logout too; the plugin does not see the logout.
 - **Replay.** A login challenge is consumed with `Cache::add()`, which is only atomic on Redis, Memcached and APCu. With the File engine two finishes racing on the same challenge can both pass the cache check (the session-bound challenge list and the signature counter still apply). Point `cache` at an atomic engine in production.
@@ -263,7 +275,3 @@ The plugin has no recovery flow. A user who loses every device with a passkey ne
 
 - A passkey sign-in is a complete sign-in. Using a passkey as a second factor after a password is not supported: the login endpoints are anonymous and do not tie the passkey to the account that passed the first factor.
 - No attestation policy. Any authenticator is accepted.
-
-## License
-
-MIT. See [LICENSE](LICENSE).

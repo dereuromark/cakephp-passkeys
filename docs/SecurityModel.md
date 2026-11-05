@@ -13,7 +13,7 @@ For every registration, sign-in and re-confirmation, `web-auth/webauthn-lib` che
 
 The plugin adds:
 
-- **Single use.** A challenge is removed when it is used. Two requests racing on the same challenge cannot both pass.
+- **Single use.** A challenge is removed when it is used. On Redis, Memcached or APCu two requests racing on the same challenge cannot both pass; on engines without an atomic `add()` (File, for one) they can, and only the session-bound challenge list and the signature counter stand in the way.
 - **Expiry.** Challenges live for `challengeTtl` seconds, 300 by default.
 - **Binding.** A registration or re-confirmation challenge belongs to the user who started it. A sign-in challenge belongs to the browser session that started it.
 - **Account state.** A sign-in is refused when the owner of the passkey no longer exists or is not eligible, for example because `users.activeColumn` is false.
@@ -51,7 +51,7 @@ By default the plugin counts requests in the `passkeys_rate_limit` cache config 
 ],
 ```
 
-The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns limiting off. The plugin calls it with these buckets:
+The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns limiting off. The sign-in buckets are keyed by `ServerRequest::clientIp()`; behind a reverse proxy set `App.trustProxy`, or all visitors share one bucket. The plugin calls it with these buckets:
 
 | Bucket | Limit |
 | --- | --- |
@@ -67,12 +67,12 @@ The endpoints for registering, renaming, deleting and re-confirming trust the us
 
 ## Design decisions
 
-- **User handle.** The id sent to the authenticator is `hash_hmac('sha256', $userId, Security.salt)`, not the database id. Changing `Security.salt` afterwards breaks sign-in for existing passkeys.
+- **User handle.** By default the id sent to the authenticator is `hash_hmac('sha256', $userId, Security.salt)`, not the database id; `users.userHandle` replaces it, for passkeys registered under an older scheme. Changing `Security.salt` afterwards breaks sign-in for existing passkeys unless `users.userHandle` keeps the old handles.
 - **Email hint off by default.** With `login.emailHint` enabled, `login/start` returns the credential ids for an email address. Anyone can then test whether an address has passkeys. It is only needed for security keys that store no account information.
 - **Synced passkeys.** iCloud Keychain and Google Password Manager report a counter of 0. A counter of 0 is accepted every time; any other value has to increase.
-- **Algorithms.** ES256 and RS256 are offered. Both can be verified by the library as configured.
+- **Algorithms.** ES256 and RS256 are offered for new passkeys. EdDSA is also verified at sign-in when ext-sodium is loaded, so passkeys an app registered before using the plugin keep working.
 - **Attestation.** Requested as `none`. Any authenticator is accepted, and its make is not verified. The device label shown in the manager comes from the AAGUID the authenticator reports and is informational.
-- **Error messages.** A failed check answers with HTTP 400 and a fixed message. The reason is not sent to the browser.
+- **Error messages.** A failed check answers with HTTP 400 and a fixed message; the reason is not sent to the browser. A full rate-limit bucket answers 429, a refusal by `beforeRegister` or `beforeDelete` 403.
 
 ## Not covered
 

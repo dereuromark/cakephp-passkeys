@@ -97,10 +97,11 @@ return [
             'timeout' => 60_000,
         ],
 
-        // Cache config the challenge store is derived from. The plugin
-        // registers its own config `passkeys_challenges` with the same engine
-        // and `challengeTtl` as duration. The engine must persist between
-        // requests.
+        // Cache config the plugin copies for its own configs:
+        // `passkeys_challenges` (duration `challengeTtl`) and
+        // `passkeys_rate_limit` (one hour). The engine must persist between
+        // requests; Redis, Memcached or APCu make challenge use and rate
+        // counting atomic.
         'cache' => 'default',
 
         'mfa' => [
