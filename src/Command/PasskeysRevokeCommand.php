@@ -8,14 +8,7 @@ use Cake\Command\Command;
 use Cake\Console\Arguments;
 use Cake\Console\ConsoleIo;
 use Cake\Console\ConsoleOptionParser;
-use Cake\Core\Configure;
-use Cake\Datasource\EntityInterface;
-use Cake\Event\Event;
-use Cake\Event\EventManager;
-use CakePasskeys\Contract\PasskeyUserInterface;
-use CakePasskeys\Event\PasskeyEvent;
 use CakePasskeys\Model\Entity\Passkey;
-use CakePasskeys\Service\ConventionUserAdapter;
 use function Cake\I18n\__d;
 
 /**
@@ -24,6 +17,8 @@ use function Cake\I18n\__d;
  */
 class PasskeysRevokeCommand extends Command
 {
+    use PasskeyDeletionTrait;
+
     /**
      * @return string
      */
@@ -108,37 +103,11 @@ class PasskeysRevokeCommand extends Command
         }
 
         $userHandle = $this->userHandle($userId);
-        $table = $this->fetchTable('CakePasskeys.Passkeys');
         foreach ($passkeys as $passkey) {
-            $table->deleteOrFail($passkey);
-            EventManager::instance()->dispatch(new Event(
-                'CakePasskeys.afterDelete',
-                $this,
-                ['event' => new PasskeyEvent($passkey, $userHandle)],
-            ));
+            $this->deletePasskey($passkey, $userHandle);
             $io->out(__d('passkeys', 'Deleted passkey {0} ({1}).', $passkey->id, $passkey->name));
         }
 
         return static::CODE_SUCCESS;
-    }
-
-    /**
-     * The handle of a deactivated user still counts; a missing user row gives ''.
-     *
-     * @param string $userId
-     *
-     * @return string
-     */
-    protected function userHandle(string $userId): string
-    {
-        $table = $this->fetchTable((string)Configure::read('CakePasskeys.users.table', 'Users'));
-        $column = (string)Configure::read('CakePasskeys.users.columns.id', 'id');
-        $entity = $table->find()->where([$table->aliasField($column) => $userId])->first();
-        if (!$entity instanceof EntityInterface) {
-            return '';
-        }
-        $user = $entity instanceof PasskeyUserInterface ? $entity : new ConventionUserAdapter($entity);
-
-        return $user->getPasskeyUserHandle();
     }
 }

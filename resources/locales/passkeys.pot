@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 21:56+0000\n"
+"POT-Creation-Date: 2026-11-05 22:16+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -38,6 +38,51 @@ msgstr ""
 msgid "Authenticator"
 msgstr ""
 
+msgid "Delete passkeys that were not used for a given number of days."
+msgstr ""
+
+msgid "Days since the last use, or since creation for passkeys never used."
+msgstr ""
+
+msgid "List the passkeys that would be deleted, without deleting them."
+msgstr ""
+
+msgid "Also delete the last passkey of a user."
+msgstr ""
+
+msgid "Do not ask before deleting."
+msgstr ""
+
+msgid "--unused-for must be a positive number of days, got \"{0}\"."
+msgstr ""
+
+msgid "No passkeys unused for {0} days."
+msgstr ""
+
+msgid "User"
+msgstr ""
+
+msgid "Passkeys that would be deleted: {0}."
+msgstr ""
+
+msgid "Delete all passkeys unused for {0} days ({1} in total)?"
+msgstr ""
+
+msgid "Nothing deleted."
+msgstr ""
+
+msgid "Skipped passkey {0} ({1}) of user {2}: used since the scan."
+msgstr ""
+
+msgid "Deleted passkey {0} ({1}) of user {2}."
+msgstr ""
+
+msgid "Passkeys deleted: {0}."
+msgstr ""
+
+msgid "Kept as the last passkey of their user: {0}. Use --include-last to delete them too."
+msgstr ""
+
 msgid "Delete one passkey of a user, or all of them."
 msgstr ""
 
@@ -51,9 +96,6 @@ msgid "User {0} has no passkey {1}."
 msgstr ""
 
 msgid "Delete all {0} passkeys of user {1}?"
-msgstr ""
-
-msgid "Nothing deleted."
 msgstr ""
 
 msgid "Deleted passkey {0} ({1})."

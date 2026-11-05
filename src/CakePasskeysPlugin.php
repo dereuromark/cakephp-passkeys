@@ -15,6 +15,7 @@ use Cake\I18n\MessagesFileLoader;
 use Cake\I18n\Package;
 use Cake\Routing\RouteBuilder;
 use CakePasskeys\Command\PasskeysListCommand;
+use CakePasskeys\Command\PasskeysPruneCommand;
 use CakePasskeys\Command\PasskeysRevokeCommand;
 use InvalidArgumentException;
 
@@ -114,6 +115,7 @@ class CakePasskeysPlugin extends BasePlugin
     {
         return $commands
             ->add(PasskeysListCommand::defaultName(), PasskeysListCommand::class)
-            ->add(PasskeysRevokeCommand::defaultName(), PasskeysRevokeCommand::class);
+            ->add(PasskeysRevokeCommand::defaultName(), PasskeysRevokeCommand::class)
+            ->add(PasskeysPruneCommand::defaultName(), PasskeysPruneCommand::class);
     }
 }

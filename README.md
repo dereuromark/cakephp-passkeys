@@ -226,7 +226,7 @@ EventManager::instance()->on('CakePasskeys.afterLogin', function (EventInterface
 });
 ```
 
-`afterDelete` also fires from the `passkeys revoke` command, with the command as subject; check the subject before calling `getRequest()` on it.
+`afterDelete` also fires from the `passkeys revoke` and `passkeys prune` commands, with the command as subject; check the subject before calling `getRequest()` on it.
 
 A listener attached in your `AppController` does not run: the plugin's controller does not extend it. See [docs/Events.md](docs/Events.md).
 
@@ -351,7 +351,19 @@ bin/cake passkeys revoke 42         # delete all of them, after a prompt
 bin/cake passkeys revoke 42 --yes   # the same without the prompt
 ```
 
-Each deletion dispatches `CakePasskeys.afterDelete` with the command as subject. If the user row is gone, the passkey is still deleted and the user handle in the payload is an empty string. `beforeDelete` is not dispatched.
+### Pruning unused passkeys
+
+Passkeys of lost or replaced devices pile up. `passkeys prune` removes the ones nobody has used for a given number of days. A passkey that was never used counts from its creation date.
+
+```bash
+bin/cake passkeys prune --unused-for 365 --dry-run   # list what would go
+bin/cake passkeys prune --unused-for 365             # delete them, after a prompt
+bin/cake passkeys prune --unused-for 365 --yes       # the same without the prompt, for cron
+```
+
+The last passkey of a user is never pruned, so a cron job cannot lock anybody out: if all of a user's passkeys are unused, the most recently used (or created) one stays. Add `--include-last` to delete those too.
+
+Each deletion by `revoke` or `prune` dispatches `CakePasskeys.afterDelete` with the command as subject. If the user row is gone, the passkey is still deleted and the user handle in the payload is an empty string. `beforeDelete` is not dispatched.
 
 ## Limitations
 

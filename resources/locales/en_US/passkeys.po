@@ -127,8 +127,10 @@ msgstr "Nothing deleted."
 
 msgid "Deleted passkey {0} ({1})."
 msgstr "Deleted passkey {0} ({1})."
+
 msgid "This type of passkey is not allowed here."
 msgstr "This type of passkey is not allowed here."
+
 msgid "{0}: a passkey was added to your account"
 msgstr "{0}: a passkey was added to your account"
 
@@ -158,6 +160,7 @@ msgstr "Manage your passkeys"
 
 msgid "Manage your passkeys: {0}"
 msgstr "Manage your passkeys: {0}"
+
 msgid "Synced"
 msgstr "Synced"
 
@@ -169,3 +172,45 @@ msgstr "Keep access if you lose a device"
 
 msgid "Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in."
 msgstr "Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in."
+
+msgid "Delete passkeys that were not used for a given number of days."
+msgstr "Delete passkeys that were not used for a given number of days."
+
+msgid "Days since the last use, or since creation for passkeys never used."
+msgstr "Days since the last use, or since creation for passkeys never used."
+
+msgid "List the passkeys that would be deleted, without deleting them."
+msgstr "List the passkeys that would be deleted, without deleting them."
+
+msgid "Also delete the last passkey of a user."
+msgstr "Also delete the last passkey of a user."
+
+msgid "Do not ask before deleting."
+msgstr "Do not ask before deleting."
+
+msgid "--unused-for must be a positive number of days, got \"{0}\"."
+msgstr "--unused-for must be a positive number of days, got \"{0}\"."
+
+msgid "No passkeys unused for {0} days."
+msgstr "No passkeys unused for {0} days."
+
+msgid "User"
+msgstr "User"
+
+msgid "Passkeys that would be deleted: {0}."
+msgstr "Passkeys that would be deleted: {0}."
+
+msgid "Delete all passkeys unused for {0} days ({1} in total)?"
+msgstr "Delete all passkeys unused for {0} days ({1} in total)?"
+
+msgid "Deleted passkey {0} ({1}) of user {2}."
+msgstr "Deleted passkey {0} ({1}) of user {2}."
+
+msgid "Passkeys deleted: {0}."
+msgstr "Passkeys deleted: {0}."
+
+msgid "Kept as the last passkey of their user: {0}. Use --include-last to delete them too."
+msgstr "Kept as the last passkey of their user: {0}. Use --include-last to delete them too."
+
+msgid "Skipped passkey {0} ({1}) of user {2}: used since the scan."
+msgstr "Skipped passkey {0} ({1}) of user {2}: used since the scan."
