@@ -24,7 +24,7 @@ class CakePasskeysPlugin extends BasePlugin
     /**
      * @var string
      */
-    public const JS_VERSION = '0.1.2';
+    public const JS_VERSION = '0.1.3';
 
     protected ?string $name = 'CakePasskeys';
 
