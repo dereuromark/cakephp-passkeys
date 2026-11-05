@@ -184,6 +184,29 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
+     * A host stops `beforeRegister` (say, the sign-in is not recent); both
+     * register endpoints then refuse with 403 and the listener's message.
+     *
+     * @return void
+     */
+    public function testBeforeRegisterListenerCanRefuseRegistration(): void
+    {
+        $listener = function (EventInterface $event): void {
+            $event->stopPropagation();
+            $event->setResult('Sign in again first.');
+        };
+        EventManager::instance()->on('CakePasskeys.beforeRegister', $listener);
+        try {
+            $this->loginAs(1);
+            $this->post('/passkeys/register/start');
+            $this->assertResponseCode(403);
+            $this->assertResponseContains('Sign in again first.');
+        } finally {
+            EventManager::instance()->off('CakePasskeys.beforeRegister', $listener);
+        }
+    }
+
+    /**
      * @return void
      */
     public function testRenameUpdatesNameAndFiresEvent(): void

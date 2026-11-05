@@ -10,6 +10,9 @@ The plugin dispatches four events on the global event manager.
 | `CakePasskeys.afterLogin` | none | `loginFinish` |
 | `CakePasskeys.afterRename` | `['old' => $old, 'new' => $new]` | `rename` |
 | `CakePasskeys.afterDelete` | none | `delete` |
+| `CakePasskeys.beforeRegister` | `['user' => PasskeyUserInterface]`, no payload | `registerStart`, `registerFinish` |
+
+A listener that stops `beforeRegister` refuses the registration with a 403. A string set as result becomes the error message.
 
 The subject of every event is the plugin's `PasskeysController`, so a listener can reach the request and the session through `$event->getSubject()->getRequest()`. The payload is a `CakePasskeys\Event\PasskeyEvent` under `$event->getData('event')`.
 
@@ -58,5 +61,6 @@ with the event names in its `implementedEvents()`.
 ## What the plugin leaves to you
 
 - It writes no audit record. Do that in a listener.
-- It does not build your application's identity after a sign-in. It writes the user id to the configured session key and dispatches `afterLogin`.
+- With `cakephp/authentication` it persists the user as identity after a sign-in; without it, it only writes the user id to the configured session key. Anything else a login does in your app (timestamps, flags) belongs in an `afterLogin` listener.
+- It does not decide who may register a passkey beyond being signed in. Stop `beforeRegister` for anything stricter, such as a recent sign-in.
 - `getUserHandle()` returns the opaque handle the authenticator knows the user by, the same value for all four events. The database id is `getPasskey()->user_id`.

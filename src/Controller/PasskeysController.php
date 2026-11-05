@@ -123,6 +123,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
+        $this->guardRegistration($user);
         $this->throttle('passkeys.register.' . $user->getUserId(), 10, 60);
 
         try {
@@ -139,6 +140,7 @@ class PasskeysController extends Controller
     {
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
+        $this->guardRegistration($user);
         $body = (array)$this->getRequest()->getParsedBody();
         try {
             $passkey = $this->webauthn()->finishRegistration(
@@ -521,6 +523,30 @@ class PasskeysController extends Controller
             $this,
             ['event' => new PasskeyEvent($passkey, $userHandle, $data)],
         ));
+    }
+
+    /**
+     * Lets the host refuse a registration, for example when the sign-in is
+     * not recent. A listener stops the event and may set a message as result.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     *
+     * @throws \Cake\Http\Exception\ForbiddenException
+     *
+     * @return void
+     */
+    private function guardRegistration(PasskeyUserInterface $user): void
+    {
+        $event = new Event('CakePasskeys.beforeRegister', $this, ['user' => $user]);
+        EventManager::instance()->dispatch($event);
+        if (!$event->isStopped()) {
+            return;
+        }
+        $result = $event->getResult();
+
+        throw new ForbiddenException(
+            is_string($result) && $result !== '' ? $result : __d('passkeys', 'You cannot add a passkey right now.'),
+        );
     }
 
     /**

@@ -22,6 +22,7 @@ class PasskeysHelperTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->loadPlugins(['CakePasskeys' => ['bootstrap' => false, 'routes' => false]]);
         Configure::write('CakePasskeys.enabled', true);
         Configure::write('App.jsBaseUrl', 'js/');
         // Reset the URL prefix to the default — one test toggles it to

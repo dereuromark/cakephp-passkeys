@@ -8,6 +8,7 @@ use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Database\Connection;
 use Cake\Datasource\ConnectionManager;
+use Cake\Datasource\EntityInterface;
 use Cake\ORM\Entity;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\Contract\PasskeyUserInterface;
@@ -141,6 +142,35 @@ class WebAuthnServiceTest extends TestCase
 
         $this->assertSame(1, $passkey->user_id);
         $this->assertNotNull($passkey->last_used_at);
+    }
+
+    /**
+     * An app that registered passkeys before adopting the plugin keeps its own
+     * user handle through `users.userHandle`; the authenticator returns that
+     * handle at sign-in and the check has to accept it.
+     *
+     * @return void
+     */
+    public function testLoginAcceptsCredentialRegisteredWithCustomUserHandle(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        // The credential was created by the app's earlier code, which used
+        // the packed id as WebAuthn user handle.
+        (fn () => $this->userHandle = pack('J', 1))->call($authenticator);
+
+        Configure::write('CakePasskeys.users.userHandle', fn (EntityInterface $user): string => pack('J', $user->get('id')));
+        try {
+            $options = $this->service->startLogin();
+            $passkey = $this->service->finishLogin([
+                'challengeKey' => $options['challengeKey'],
+                'response' => $authenticator->authenticate($options, true),
+            ]);
+
+            $this->assertSame(1, $passkey->user_id);
+        } finally {
+            Configure::delete('CakePasskeys.users.userHandle');
+        }
     }
 
     /**

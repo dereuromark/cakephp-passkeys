@@ -8,6 +8,7 @@ use Cake\Core\Configure;
 use Cake\Datasource\EntityInterface;
 use Cake\Utility\Security;
 use CakePasskeys\Contract\PasskeyUserInterface;
+use Closure;
 use RuntimeException;
 
 class ConventionUserAdapter implements PasskeyUserInterface
@@ -34,6 +35,15 @@ class ConventionUserAdapter implements PasskeyUserInterface
      */
     public function getPasskeyUserHandle(): string
     {
+        $custom = Configure::read('CakePasskeys.users.userHandle');
+        if ($custom instanceof Closure) {
+            $handle = $custom($this->entity);
+            if (!is_string($handle) || $handle === '' || strlen($handle) > 64) {
+                throw new RuntimeException('CakePasskeys.users.userHandle must return a non-empty string of at most 64 bytes');
+            }
+
+            return $handle;
+        }
         $salt = Configure::read('Security.salt') ?: Security::getSalt();
         if (!$salt) {
             throw new RuntimeException('Security.salt must be set for stable passkey user handles');

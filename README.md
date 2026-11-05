@@ -56,6 +56,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `users.table` | `'Users'` | Table your users live in. |
 | `users.columns` | `id`, `email`, `name` | Column names for the id, the email and the display name. |
 | `users.activeColumn` | `null` | Boolean column. Users where it is false cannot register or sign in. |
+| `users.userHandle` | `null` | Closure `fn (EntityInterface $user): string` for the WebAuthn user handle, at most 64 bytes. Set it when your app already has passkeys registered under its own handle. See [Moving existing passkeys](#moving-existing-passkeys). |
 | `users.idType` | `'integer'` | Type of `passkeys.user_id`: `integer`, `biginteger`, `uuid` or `string`. Read by the migration. |
 | `identityResolver` | `null` | Closure that returns the id of the signed-in user. See [Who is signed in](#who-is-signed-in). |
 | `session.persistIdentity` | `true` | Hand the signed-in user to `cakephp/authentication` when it is loaded. See [Pick up the signed-in user](#4-pick-up-the-signed-in-user). |
@@ -168,6 +169,21 @@ Dispatched on the global event manager. The payload is a `CakePasskeys\Event\Pas
 | `CakePasskeys.afterRename` | a passkey was renamed | `old`, `new` |
 | `CakePasskeys.afterDelete` | a passkey was deleted | |
 
+`CakePasskeys.beforeRegister` runs before both register steps, with the user under `user` instead of a payload. Stop it to refuse the registration with a 403; a string result becomes the message:
+
+```php
+EventManager::instance()->on('CakePasskeys.beforeRegister', function (EventInterface $event): void {
+    $session = $event->getSubject()->getRequest()->getSession();
+    // wherever your login code records the sign-in time
+    if ((int)$session->read('Login.time') < time() - 900) {
+        $event->stopPropagation();
+        $event->setResult(__('Please sign in again to add a passkey.'));
+    }
+});
+```
+
+Registering a passkey gives lasting access to the account, so asking for a recent sign-in here is a good default.
+
 Attach listeners where they exist for every request, such as `Application::bootstrap()`:
 
 ```php
@@ -220,6 +236,19 @@ Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](d
 - **Synced passkeys** from iCloud Keychain or Google Password Manager report a signature counter of 0. That is accepted. A counter that goes backwards is refused.
 
 More in [docs/SecurityModel.md](docs/SecurityModel.md). Report vulnerabilities as described in [SECURITY.md](SECURITY.md).
+
+## Moving existing passkeys
+
+If your app stored passkeys before it used this plugin, the authenticators know those users by the handle your old code chose, and a sign-in is checked against it. Keep that handle with `users.userHandle`:
+
+```php
+'users' => [
+    // the old code used the packed integer id
+    'userHandle' => fn (\Cake\Datasource\EntityInterface $user): string => pack('J', $user->get('id')),
+],
+```
+
+New passkeys then get the same handle. The `passkeys` table columns must match the plugin's migration; add missing ones in a migration of your own instead of running the plugin's.
 
 ## Recovery
 

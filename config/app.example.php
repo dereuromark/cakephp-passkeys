@@ -48,6 +48,10 @@ return [
             // Boolean column, e.g. 'is_active'. Users where it is false
             // cannot register or sign in.
             'activeColumn' => null,
+            // Closure (EntityInterface $user): string for the WebAuthn user
+            // handle, at most 64 bytes. Only for passkeys registered before
+            // the plugin was used; null uses an HMAC of the id.
+            'userHandle' => null,
             // Type of `passkeys.user_id`: integer, biginteger, uuid or
             // string. Read by the migration, so set it before migrating.
             'idType' => 'integer',

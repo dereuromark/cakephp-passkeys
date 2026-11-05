@@ -82,3 +82,6 @@ msgstr "Too many attempts. Try again later."
 
 msgid "Unknown passkey credential."
 msgstr "Unknown passkey credential."
+
+msgid "You cannot add a passkey right now."
+msgstr "You cannot add a passkey right now."
