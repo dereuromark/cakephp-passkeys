@@ -78,6 +78,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `nudge.enabled` | `true` | Show the RegisterNudge cell to signed-in users without a passkey. |
 | `nudge.redisplayAfterDays` | `14` | Days until a dismissed nudge shows again. |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
+| `wellKnown.enroll`, `wellKnown.manage` | `null` | URLs (string or URL array) served at `/.well-known/passkey-endpoints`. See [Password manager links](#password-manager-links). |
 
 ## Usage
 
@@ -236,6 +237,19 @@ import { register, authenticate, conditional, reauth, rename, remove } from '@de
 ```
 
 Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](docs/JsApi.md).
+
+## Password manager links
+
+Password managers such as Chrome, 1Password and Bitwarden request `GET /.well-known/passkey-endpoints` ([W3C draft](https://w3c.github.io/webappsec-passkey-endpoints/)) to find where a user can add a passkey and where to manage them. Set the pages to answer it:
+
+```php
+'wellKnown' => [
+    'enroll' => ['controller' => 'Account', 'action' => 'security'],
+    'manage' => '/account/security',
+],
+```
+
+The plugin answers with absolute URLs, for example `{"enroll": "https://example.com/account/security", "manage": "https://example.com/account/security"}`. A key left `null` is omitted; with both `null`, or `enabled` set to `false`, the URL answers 404. The route sits at the root, outside `urlPrefix`, and needs no sign-in. A URL array points into your app unless it names a `plugin` or `prefix`.
 
 ## Security
 

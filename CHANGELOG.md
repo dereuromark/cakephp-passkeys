@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `GET /.well-known/passkey-endpoints` tells password managers where users add and manage passkeys. Off until `wellKnown.enroll` or `wellKnown.manage` is set.
+
 ### Changed
 
 - `reauth/finish`, `rename` and `delete` are rate-limited too (`passkeys.reauth_finish.<user>` 20 per minute, `passkeys.manage.<user>` 30 per minute for rename and delete together).

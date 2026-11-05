@@ -128,5 +128,14 @@ return [
             // Days until a dismissed nudge is shown again.
             'redisplayAfterDays' => 14,
         ],
+
+        // Answer GET /.well-known/passkey-endpoints, so password managers can
+        // link users to where they add and manage passkeys. Each value is a
+        // URL string or a Cake URL array; null leaves the key out. With both
+        // null, the URL answers 404.
+        'wellKnown' => [
+            'enroll' => null,
+            'manage' => null,
+        ],
     ],
 ];
