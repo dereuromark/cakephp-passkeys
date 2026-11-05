@@ -211,3 +211,6 @@ msgstr "Gelöschte Passkeys: {0}."
 
 msgid "Kept as the last passkey of their user: {0}. Use --include-last to delete them too."
 msgstr "Als letzter Passkey ihres Benutzers behalten: {0}. Mit --include-last werden auch sie gelöscht."
+
+msgid "Skipped passkey {0} ({1}) of user {2}: used since the scan."
+msgstr "Passkey {0} ({1}) von Benutzer {2} übersprungen: seit der Prüfung benutzt."

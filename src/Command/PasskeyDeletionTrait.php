@@ -29,6 +29,17 @@ trait PasskeyDeletionTrait
     protected function deletePasskey(Passkey $passkey, string $userHandle): void
     {
         $this->fetchTable('CakePasskeys.Passkeys')->deleteOrFail($passkey);
+        $this->dispatchAfterDelete($passkey, $userHandle);
+    }
+
+    /**
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
+     * @param string $userHandle
+     *
+     * @return void
+     */
+    protected function dispatchAfterDelete(Passkey $passkey, string $userHandle): void
+    {
         EventManager::instance()->dispatch(new Event(
             'CakePasskeys.afterDelete',
             $this,

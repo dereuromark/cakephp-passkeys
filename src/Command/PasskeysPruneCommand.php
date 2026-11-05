@@ -128,18 +128,28 @@ class PasskeysPruneCommand extends Command
 
                 return static::CODE_SUCCESS;
             }
-            // A passkey may have been used while the prompt was open.
-            [$candidates, $kept] = $this->findCandidates($cutoff, $includeLast);
         }
 
+        $table = $this->fetchTable('CakePasskeys.Passkeys');
         $handles = [];
+        $deleted = 0;
         foreach ($candidates as $passkey) {
             $userId = (string)$passkey->user_id;
+            // Conditional delete: a passkey used since the scan stays.
+            $affected = $table->deleteAll(function (QueryExpression $exp) use ($passkey, $cutoff): QueryExpression {
+                return $exp->eq('id', $passkey->id)->add($this->unusedSince($exp, $cutoff, ''));
+            });
+            if (!$affected) {
+                $io->out(__d('passkeys', 'Skipped passkey {0} ({1}) of user {2}: used since the scan.', $passkey->id, $passkey->name, $userId));
+
+                continue;
+            }
             $handles[$userId] ??= $this->userHandle($userId);
-            $this->deletePasskey($passkey, $handles[$userId]);
+            $this->dispatchAfterDelete($passkey, $handles[$userId]);
+            $deleted++;
             $io->out(__d('passkeys', 'Deleted passkey {0} ({1}) of user {2}.', $passkey->id, $passkey->name, $userId));
         }
-        $io->out(__d('passkeys', 'Passkeys deleted: {0}.', count($candidates)));
+        $io->out(__d('passkeys', 'Passkeys deleted: {0}.', $deleted));
         $this->reportKept($io, $kept);
 
         return static::CODE_SUCCESS;
@@ -155,15 +165,7 @@ class PasskeysPruneCommand extends Command
     {
         /** @var array<\CakePasskeys\Model\Entity\Passkey> $candidates */
         $candidates = $this->fetchTable('CakePasskeys.Passkeys')->find()
-            ->where(function (QueryExpression $exp) use ($cutoff): QueryExpression {
-                return $exp->or([
-                    'Passkeys.last_used_at <' => $cutoff,
-                    $exp->and([
-                        $exp->isNull('Passkeys.last_used_at'),
-                        'Passkeys.created <' => $cutoff,
-                    ]),
-                ]);
-            })
+            ->where(fn (QueryExpression $exp): QueryExpression => $this->unusedSince($exp, $cutoff, 'Passkeys.'))
             ->orderBy(['Passkeys.user_id' => 'ASC', 'Passkeys.id' => 'ASC'])
             ->all()
             ->toArray();
@@ -173,6 +175,26 @@ class PasskeysPruneCommand extends Command
         $remaining = $this->spareLastPasskeys($candidates);
 
         return [$remaining, count($candidates) - count($remaining)];
+    }
+
+    /**
+     * Last used before the cutoff, or never used and created before it.
+     *
+     * @param \Cake\Database\Expression\QueryExpression $exp
+     * @param \Cake\I18n\DateTime $cutoff
+     * @param string $prefix Column prefix, '' for deleteAll().
+     *
+     * @return \Cake\Database\Expression\QueryExpression
+     */
+    protected function unusedSince(QueryExpression $exp, DateTime $cutoff, string $prefix): QueryExpression
+    {
+        return $exp->or([
+            $prefix . 'last_used_at <' => $cutoff,
+            $exp->and([
+                $prefix . 'last_used_at IS' => null,
+                $prefix . 'created <' => $cutoff,
+            ]),
+        ]);
     }
 
     /**

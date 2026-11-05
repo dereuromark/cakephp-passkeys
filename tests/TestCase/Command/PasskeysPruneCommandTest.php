@@ -177,6 +177,34 @@ class PasskeysPruneCommandTest extends TestCase
     /**
      * @return void
      */
+    public function testSkipsPasskeyUsedSinceTheScan(): void
+    {
+        $first = $this->seedAged(1, 'Old phone', 400, 100);
+        $second = $this->seedAged(1, 'Old tablet', 400, 90);
+        $this->seedAged(1, 'Laptop', 400, 1);
+        $touch = function () use ($second): void {
+            $this->getTableLocator()->get('CakePasskeys.Passkeys')
+                ->updateAll(['last_used_at' => DateTime::now()], ['id' => $second]);
+        };
+        EventManager::instance()->on('CakePasskeys.afterDelete', $touch);
+
+        try {
+            $this->exec('passkeys prune --unused-for 30 --yes');
+        } finally {
+            EventManager::instance()->off('CakePasskeys.afterDelete', $touch);
+        }
+
+        $this->assertExitSuccess();
+        $this->assertOutputContains('Skipped passkey ' . $second . ' (Old tablet) of user 1: used since the scan.');
+        $this->assertOutputContains('Passkeys deleted: 1.');
+        $this->assertNotContains($first, $this->remainingIds());
+        $this->assertContains($second, $this->remainingIds());
+        $this->assertCount(1, $this->events);
+    }
+
+    /**
+     * @return void
+     */
     public function testDryRunListsWithoutDeleting(): void
     {
         $old = $this->seedAged(1, 'Old phone', 400, 100);

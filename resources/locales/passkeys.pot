@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 22:14+0000\n"
+"POT-Creation-Date: 2026-11-05 22:16+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -69,6 +69,9 @@ msgid "Delete all passkeys unused for {0} days ({1} in total)?"
 msgstr ""
 
 msgid "Nothing deleted."
+msgstr ""
+
+msgid "Skipped passkey {0} ({1}) of user {2}: used since the scan."
 msgstr ""
 
 msgid "Deleted passkey {0} ({1}) of user {2}."
