@@ -137,7 +137,8 @@ return [
             // Days until a dismissed nudge is shown again.
             'redisplayAfterDays' => 14,
             // Also nudge users whose passkeys are all known to be bound to
-            // one device (not synced), suggesting a second passkey.
+            // one device (not synced), suggesting a second passkey. Not shown
+            // once the user has reached maxPerUser.
             'deviceBoundOnly' => true,
         ],
 

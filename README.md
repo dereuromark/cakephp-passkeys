@@ -77,7 +77,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `rateLimiter` | `null` | Class or instance implementing `RateLimiterInterface`. `null` uses the built-in cache-backed limiter, `false` turns limiting off. |
 | `docsUrl` | `null` | Link shown in the empty state of the Manager cell. |
 | `nudge.enabled` | `true` | Show the RegisterNudge cell to signed-in users without a passkey. |
-| `nudge.deviceBoundOnly` | `true` | Also show it, with copy suggesting a second passkey, when every passkey of the user is known to be bound to one device. |
+| `nudge.deviceBoundOnly` | `true` | Also show it, with copy suggesting a second passkey, when every passkey of the user is known to be bound to one device and the user is below `maxPerUser`. |
 | `nudge.redisplayAfterDays` | `14` | Days until a dismissed nudge shows again. |
 | `signals` | `true` | Keep the browser's passkey list in sync through the WebAuthn Signal API. See [Keeping passkey lists in sync](#keeping-passkey-lists-in-sync). |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |

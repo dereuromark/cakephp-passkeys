@@ -50,8 +50,11 @@ class NudgePolicy
         if ($passkeyCount === 0) {
             return static::REASON_NO_PASSKEY;
         }
+        $maxPerUser = (int)Configure::read('CakePasskeys.maxPerUser', 5);
+        $belowCap = $maxPerUser <= 0 || $passkeyCount < $maxPerUser;
         if (
-            $deviceBoundCount >= $passkeyCount
+            $belowCap
+            && $deviceBoundCount >= $passkeyCount
             && (bool)Configure::read('CakePasskeys.nudge.deviceBoundOnly', true)
         ) {
             return static::REASON_DEVICE_BOUND_ONLY;
