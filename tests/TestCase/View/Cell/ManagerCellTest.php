@@ -103,6 +103,25 @@ class ManagerCellTest extends TestCase
     /**
      * @return void
      */
+    public function testBackupStateLabels(): void
+    {
+        $this->seedPasskey(1, ['name' => 'Synced one', 'backup_eligible' => true, 'backed_up' => true]);
+        $this->seedPasskey(1, ['name' => 'Bound one', 'backup_eligible' => false, 'backed_up' => false]);
+        // Eligible but not synced yet, and rows without flags, get no label.
+        $this->seedPasskey(1, ['name' => 'Not yet', 'backup_eligible' => true, 'backed_up' => false]);
+        $this->seedPasskey(1, ['name' => 'Old one']);
+        $html = $this->renderCell(userId: 1);
+
+        $this->assertSame(1, substr_count($html, 'data-passkey-backup="synced"'));
+        $this->assertSame(1, substr_count($html, 'data-passkey-backup="device"'));
+        $this->assertSame(2, substr_count($html, 'data-passkey-backup='));
+        $this->assertStringContainsString('Synced', $html);
+        $this->assertStringContainsString('This device only', $html);
+    }
+
+    /**
+     * @return void
+     */
     public function testDisabledRendersNothing(): void
     {
         Configure::write('CakePasskeys.enabled', false);

@@ -123,16 +123,18 @@ export function bind(root: ParentNode = document): void {
     });
 
     // The nudge is rendered hidden and shown here unless it was dismissed
-    // recently. The dismissal lives in localStorage, per browser.
+    // recently. The dismissal lives in localStorage, per browser and per
+    // reason, so dismissing one nudge does not hide a different one.
     root.querySelectorAll<HTMLElement>('[data-passkey-nudge]').forEach((nudge) => {
         if (nudge.dataset.passkeyBound === '1') return;
         nudge.dataset.passkeyBound = '1';
         const days = Number(nudge.dataset.passkeyNudgeDays ?? '14');
-        const dismissedAt = Number(readStored(NUDGE_KEY) ?? '0');
+        const key = nudgeKey(nudge.dataset.passkeyNudgeReason);
+        const dismissedAt = Number(readStored(key) ?? '0');
         const hiddenUntil = dismissedAt + days * 24 * 60 * 60 * 1000;
         if (isSupported() && Date.now() >= hiddenUntil) nudge.hidden = false;
         nudge.querySelector<HTMLElement>('[data-passkey-nudge-dismiss]')?.addEventListener('click', () => {
-            writeStored(NUDGE_KEY, String(Date.now()));
+            writeStored(key, String(Date.now()));
             nudge.hidden = true;
         });
     });
@@ -189,6 +191,11 @@ function readSignals(el: HTMLElement): UserSignalData | null {
 }
 
 const NUDGE_KEY = 'passkeys.nudgeDismissedAt';
+
+// The no-passkey nudge keeps the original key, so earlier dismissals still count.
+function nudgeKey(reason: string | undefined): string {
+    return reason && reason !== 'noPasskey' ? `${NUDGE_KEY}.${reason}` : NUDGE_KEY;
+}
 
 function readStored(key: string): string | null {
     try {

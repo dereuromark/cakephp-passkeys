@@ -14,6 +14,8 @@ use Cake\ORM\Entity;
  * @property string|null $aaguid
  * @property string|null $aaguid_label
  * @property string|null $transports
+ * @property bool|null $backup_eligible
+ * @property bool|null $backed_up
  * @property int $sign_count
  * @property string $name
  * @property string|null $emoji

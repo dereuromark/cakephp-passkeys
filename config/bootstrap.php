@@ -31,7 +31,7 @@ return [
         'urlPrefix' => '/passkeys',
         'identityResolver' => null,
         'docsUrl' => null,
-        'nudge' => ['enabled' => true, 'redisplayAfterDays' => 14],
+        'nudge' => ['enabled' => true, 'redisplayAfterDays' => 14, 'deviceBoundOnly' => true],
         'wellKnown' => ['enroll' => null, 'manage' => null],
         'notify' => ['onRegister' => false, 'emailProfile' => 'default', 'manageUrl' => null],
         'signals' => true,

@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 21:38+0000\n"
+"POT-Creation-Date: 2026-11-05 21:56+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -80,10 +80,10 @@ msgstr ""
 msgid "You cannot add a passkey right now."
 msgstr ""
 
-msgid "This type of passkey is not allowed here."
+msgid "{0}: a passkey was added to your account"
 msgstr ""
 
-msgid "{0}: a passkey was added to your account"
+msgid "This type of passkey is not allowed here."
 msgstr ""
 
 msgid "Sign in with a passkey"
@@ -119,6 +119,12 @@ msgstr ""
 msgid "Passkey"
 msgstr ""
 
+msgid "Synced"
+msgstr ""
+
+msgid "This device only"
+msgstr ""
+
 msgid "never"
 msgstr ""
 
@@ -132,6 +138,12 @@ msgid "You've reached your limit of {0} passkeys."
 msgstr ""
 
 msgid "Add another passkey"
+msgstr ""
+
+msgid "Keep access if you lose a device"
+msgstr ""
+
+msgid "Your passkeys are not synced. Each one lives on a single device or security key and is gone if you lose it. Add a second passkey, for example on your phone or in a password manager, so you can still sign in."
 msgstr ""
 
 msgid "Sign in faster next time"

@@ -256,6 +256,8 @@ class WebAuthnService
         $entity->set('aaguid_label', $aaguidLabel);
         $entity->set('transports', $this->joinTransports(array_values($source->transports)));
         $entity->set('sign_count', (int)$source->counter);
+        $entity->set('backup_eligible', $source->backupEligible);
+        $entity->set('backed_up', $source->backupStatus);
         $entity->set('name', $this->normalizeName($passkeyName));
         $entity->set('emoji', $this->normalizeEmoji($emoji));
         $entity->set('last_used_at', null);
@@ -367,6 +369,7 @@ class WebAuthnService
         }
 
         $passkey->set('sign_count', $newCounter);
+        $this->applyBackupState($passkey, $assertionResponse);
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
@@ -462,6 +465,7 @@ class WebAuthnService
         }
 
         $passkey->set('sign_count', $newCounter);
+        $this->applyBackupState($passkey, $assertionResponse);
         $passkey->set('last_used_at', DateTime::now());
         $this->passkeys()->saveOrFail($passkey);
 
@@ -657,7 +661,31 @@ class WebAuthnService
             (string)$passkey->public_key,
             $userHandle,
             (int)$passkey->sign_count,
+            backupEligible: $passkey->backup_eligible,
+            backupStatus: $passkey->backed_up,
         );
+    }
+
+    /**
+     * BS changes as a passkey gets synced. BE must not change once known
+     * (WebAuthn L3); older library versions do not check that themselves.
+     *
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
+     * @param \Webauthn\AuthenticatorAssertionResponse $assertionResponse Verified assertion
+     *
+     * @throws \CakePasskeys\Service\WebAuthnException
+     *
+     * @return void
+     */
+    private function applyBackupState(Passkey $passkey, AuthenticatorAssertionResponse $assertionResponse): void
+    {
+        $authData = $assertionResponse->authenticatorData;
+        $eligible = $authData->isBackupEligible();
+        if ($passkey->backup_eligible !== null && $passkey->backup_eligible !== $eligible) {
+            throw new WebAuthnException('Passkey verification failed.');
+        }
+        $passkey->set('backup_eligible', $eligible);
+        $passkey->set('backed_up', $authData->isBackedUp());
     }
 
     /**

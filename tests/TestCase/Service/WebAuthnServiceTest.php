@@ -202,6 +202,102 @@ class WebAuthnServiceTest extends TestCase
         ]));
     }
 
+    /**
+     * @return array<string, array{bool, bool}>
+     */
+    public static function backupFlags(): array
+    {
+        return [
+            'device-bound' => [false, false],
+            'eligible, not synced' => [true, false],
+            'synced' => [true, true],
+        ];
+    }
+
+    #[DataProvider('backupFlags')]
+    public function testRegistrationStoresBackupFlags(bool $eligible, bool $backedUp): void
+    {
+        $authenticator = new SoftAuthenticator(backupEligible: $eligible, backedUp: $backedUp);
+
+        $this->register($this->makeUser(1), $authenticator);
+
+        /** @var \CakePasskeys\Model\Entity\Passkey $stored */
+        $stored = $this->getTableLocator()->get('CakePasskeys.Passkeys')->find()->firstOrFail();
+        $this->assertSame($eligible, $stored->backup_eligible);
+        $this->assertSame($backedUp, $stored->backed_up);
+    }
+
+    public function testLoginUpdatesBackupState(): void
+    {
+        $authenticator = new SoftAuthenticator(backupEligible: true);
+        $this->register($this->makeUser(1), $authenticator);
+
+        $authenticator->backedUp = true;
+        $options = $this->service->startLogin();
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+
+        /** @var \CakePasskeys\Model\Entity\Passkey $stored */
+        $stored = $this->getTableLocator()->get('CakePasskeys.Passkeys')->find()->firstOrFail();
+        $this->assertTrue($stored->backup_eligible);
+        $this->assertTrue($stored->backed_up);
+    }
+
+    public function testLoginFillsUnknownBackupEligibility(): void
+    {
+        $authenticator = new SoftAuthenticator(backupEligible: true, backedUp: true);
+        $this->register($this->makeUser(1), $authenticator);
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
+        $table->updateAll(['backup_eligible' => null, 'backed_up' => null], []);
+
+        $options = $this->service->startLogin();
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+
+        /** @var \CakePasskeys\Model\Entity\Passkey $stored */
+        $stored = $table->find()->firstOrFail();
+        $this->assertTrue($stored->backup_eligible);
+        $this->assertTrue($stored->backed_up);
+    }
+
+    public function testReauthUpdatesBackupState(): void
+    {
+        $user = $this->makeUser(1);
+        $authenticator = new SoftAuthenticator(backupEligible: true, backedUp: true);
+        $this->register($user, $authenticator);
+
+        $authenticator->backedUp = false;
+        $options = $this->service->startReauth($user);
+        $this->service->finishReauth($user, [
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+
+        /** @var \CakePasskeys\Model\Entity\Passkey $stored */
+        $stored = $this->getTableLocator()->get('CakePasskeys.Passkeys')->find()->firstOrFail();
+        $this->assertTrue($stored->backup_eligible);
+        $this->assertFalse($stored->backed_up);
+    }
+
+    public function testLoginRejectsChangedBackupEligibility(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+
+        $authenticator->backupEligible = true;
+        $options = $this->service->startLogin();
+
+        $this->expectException(WebAuthnException::class);
+        $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+    }
+
     public function testLoginRejectsPasskeyOfAnotherUserOnReauth(): void
     {
         $authenticator = new SoftAuthenticator();

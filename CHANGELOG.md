@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `allowedAaguids` option: limit new passkeys to a list of authenticator models (AAGUIDs). A policy filter on the self-reported AAGUID, not attestation-backed; existing passkeys are not affected.
 - Optional security alert mail when a passkey is added to an account (`notify.onRegister`, `notify.emailProfile`, `notify.manageUrl`), sent with the new `CakePasskeys\Mailer\PasskeyMailer`.
 - WebAuthn Signal API support (Chrome 132+): unknown credentials, the remaining passkeys after a delete and the current account names are signaled to the authenticator. Turn off with `CakePasskeys.signals`.
+- Passkeys store whether they can sync (`backup_eligible`) and whether they are synced (`backed_up`), updated on each sign-in. The Manager cell labels them "Synced" or "This device only", the JSON adds `backupEligible` and `backedUp`, and the RegisterNudge cell suggests a second passkey when all of a user's passkeys are device-bound (`nudge.deviceBoundOnly`, default `true`). Run the new migration; apps with their own `passkeys` table add the two columns themselves.
 
 ### Changed
 

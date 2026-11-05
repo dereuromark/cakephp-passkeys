@@ -10,7 +10,8 @@ use CakePasskeys\Service\IdentityResolver;
 use CakePasskeys\Service\NudgePolicy;
 
 /**
- * Banner that suggests adding a passkey to a signed-in user who has none.
+ * Banner that suggests adding a passkey to a signed-in user who has none,
+ * or a second one when every passkey is bound to a single device.
  * Dismissal is remembered in the browser by the bundled JavaScript.
  */
 class RegisterNudgeCell extends Cell
@@ -32,9 +33,17 @@ class RegisterNudgeCell extends Cell
         $passkeyCount = $table->find()
             ->where(['user_id' => $userId])
             ->count();
+        $deviceBoundCount = 0;
+        if ($passkeyCount > 0) {
+            $deviceBoundCount = $table->find()
+                ->where(['user_id' => $userId, 'backup_eligible' => false])
+                ->count();
+        }
 
+        $reason = (new NudgePolicy())->reason($passkeyCount, $deviceBoundCount);
         $this->set([
-            'hidden' => !(new NudgePolicy())->shouldShow($passkeyCount),
+            'hidden' => $reason === null,
+            'reason' => $reason,
             'redisplayAfterDays' => (int)Configure::read('CakePasskeys.nudge.redisplayAfterDays', 14),
         ]);
     }

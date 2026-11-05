@@ -53,7 +53,14 @@ if ($hidden) {
                                 data-passkey-prompt="<?= h(__d('passkeys', 'New name for this passkey')) ?>"
                                 aria-label="<?= h(__d('passkeys', 'Rename')) ?>">✎</button>
                     </td>
-                    <td><?= h($p->aaguid_label ?? __d('passkeys', 'Passkey')) ?></td>
+                    <td>
+                        <?= h($p->aaguid_label ?? __d('passkeys', 'Passkey')) ?>
+                        <?php if ($p->backed_up) { ?>
+                            <span class="passkeys-backup badge text-bg-success" data-passkey-backup="synced"><?= __d('passkeys', 'Synced') ?></span>
+                        <?php } elseif ($p->backup_eligible === false) { ?>
+                            <span class="passkeys-backup badge text-bg-warning" data-passkey-backup="device"><?= __d('passkeys', 'This device only') ?></span>
+                        <?php } ?>
+                    </td>
                     <td><?= $p->created?->nice() ?></td>
                     <td><?= $p->last_used_at ? $p->last_used_at->timeAgoInWords() : __d('passkeys', 'never') ?></td>
                     <td>

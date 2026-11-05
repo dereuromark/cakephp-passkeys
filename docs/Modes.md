@@ -77,3 +77,5 @@ The attribute makes the JavaScript run the ceremony before the form is submitted
 ## Recovery
 
 A user who loses every device with a passkey cannot sign in with one. Keep another way in, such as a password or a sign-in link sent by email, and let users delete lost passkeys in the manager afterwards. Support staff can remove them with `bin/cake passkeys revoke` (see the README).
+
+A passkey that is not synced is the usual way this happens: it lives on one device only. The manager labels those "This device only", and the RegisterNudge cell asks users whose passkeys are all device-bound to add a second one.

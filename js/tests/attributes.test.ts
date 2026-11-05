@@ -132,4 +132,27 @@ describe('attributes binder', () => {
         bind();
         expect((document.querySelector('[data-passkey-nudge]') as HTMLElement).hidden).toBe(true);
     });
+
+    it('keeps the dismissal of each nudge reason separate', () => {
+        const render = (reason: string) => {
+            document.body.innerHTML = `
+                <meta name="passkeys-endpoints" content='${JSON.stringify(endpoints)}'>
+                <div data-passkey-nudge data-passkey-nudge-reason="${reason}" data-passkey-nudge-days="14" hidden>
+                    <button data-passkey-nudge-dismiss>Not now</button>
+                </div>
+            `;
+            bind();
+
+            return document.querySelector('[data-passkey-nudge]') as HTMLElement;
+        };
+        window.localStorage.clear();
+        window.localStorage.setItem('passkeys.nudgeDismissedAt', String(Date.now()));
+
+        expect(render('noPasskey').hidden).toBe(true);
+        const deviceBound = render('deviceBoundOnly');
+        expect(deviceBound.hidden).toBe(false);
+
+        (deviceBound.querySelector('[data-passkey-nudge-dismiss]') as HTMLButtonElement).click();
+        expect(render('deviceBoundOnly').hidden).toBe(true);
+    });
 });
