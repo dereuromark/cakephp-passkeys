@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `CakePasskeys.beforeRegister` event: stop it to refuse a passkey registration (403), for example when the sign-in is not recent.
 - `users.userHandle` option, so an app that stored passkeys before using the plugin can keep the user handle those passkeys were registered with.
 - An `afterLogin` listener can add keys to the `login/finish` JSON answer (for example an API token).
+- Sign-in accepts EdDSA passkeys (with the sodium extension), so passkeys an app registered before using the plugin keep working. New passkeys are still offered ES256 and RS256.
 
 ### Changed
 

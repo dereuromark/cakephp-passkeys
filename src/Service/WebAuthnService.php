@@ -11,6 +11,10 @@ use CakePasskeys\Contract\PasskeyUserInterface;
 use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Model\Table\PasskeysTable;
 use Closure;
+use Cose\Algorithm\Manager;
+use Cose\Algorithm\Signature\ECDSA\ES256;
+use Cose\Algorithm\Signature\EdDSA\EdDSA;
+use Cose\Algorithm\Signature\RSA\RS256;
 use Symfony\Component\Serializer\SerializerInterface;
 use Symfony\Component\Uid\Uuid;
 use Throwable;
@@ -99,6 +103,14 @@ class WebAuthnService
 
         $factory = new CeremonyStepManagerFactory();
         $factory->setAttestationStatementSupportManager($attestationSupportManager);
+        // New passkeys are offered ES256 and RS256 only (see
+        // defaultPubKeyCredParams()). EdDSA is accepted on top so passkeys an
+        // app registered before it used the plugin keep working.
+        $algorithms = [ES256::create(), RS256::create()];
+        if (extension_loaded('sodium')) {
+            $algorithms[] = new EdDSA();
+        }
+        $factory->setAlgorithmManager(Manager::create()->add(...$algorithms));
         // Browsers treat http://localhost as a secure context, so development
         // works without TLS. Every other origin has to be https.
         $factory->setSecuredRelyingPartyId(['localhost']);

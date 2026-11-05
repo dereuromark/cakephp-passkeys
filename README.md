@@ -251,7 +251,7 @@ If your app stored passkeys before it used this plugin, the authenticators know 
 ],
 ```
 
-New passkeys then get the same handle.
+New passkeys then get the same handle. Existing EdDSA passkeys (common on hardware keys) sign in as long as PHP has the sodium extension; new passkeys are created with ES256 or RS256.
 
 If your app already has a `passkeys` table, do not run the plugin's migration. Add any column the plugin's `config/Migrations/*_CreatePasskeys.php` has and yours lacks in a migration of your own (keep the binary types for `credential_id`, `public_key` and `aaguid`), then record the plugin migration as done with `bin/cake migrations mark_migrated -p CakePasskeys`.
 
