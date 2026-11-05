@@ -31,5 +31,6 @@ return [
         'identityResolver' => null,
         'docsUrl' => null,
         'nudge' => ['enabled' => true, 'redisplayAfterDays' => 14],
+        'wellKnown' => ['enroll' => null, 'manage' => null],
     ],
 ];

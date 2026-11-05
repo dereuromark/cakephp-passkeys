@@ -57,6 +57,7 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.session.userIdKey', 'Auth.id');
         Configure::write('CakePasskeys.session.persistIdentity', true);
         Configure::write('CakePasskeys.rateLimiter', null);
+        Configure::write('CakePasskeys.wellKnown', ['enroll' => null, 'manage' => null]);
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -1167,6 +1168,55 @@ class PasskeysControllerTest extends TestCase
         $table->saveOrFail($entity);
 
         return (int)$entity->id;
+    }
+
+    /**
+     * @return void
+     */
+    public function testWellKnownReturnsConfiguredUrls(): void
+    {
+        Configure::write('CakePasskeys.wellKnown', [
+            'enroll' => '/account/passkeys/add',
+            'manage' => ['plugin' => 'CakePasskeys', 'controller' => 'Passkeys', 'action' => 'loginStart'],
+        ]);
+        $this->get('/.well-known/passkey-endpoints');
+        $this->assertResponseOk();
+        $this->assertContentType('application/json');
+        $this->assertSame([
+            'enroll' => 'http://localhost/account/passkeys/add',
+            'manage' => 'http://localhost/passkeys/login/start',
+        ], $this->decodeJsonBody());
+    }
+
+    /**
+     * @return void
+     */
+    public function testWellKnownOmitsUnconfiguredKeys(): void
+    {
+        Configure::write('CakePasskeys.wellKnown.manage', 'https://example.com/settings/security');
+        $this->get('/.well-known/passkey-endpoints');
+        $this->assertResponseOk();
+        $this->assertSame(['manage' => 'https://example.com/settings/security'], $this->decodeJsonBody());
+    }
+
+    /**
+     * @return void
+     */
+    public function testWellKnownReturns404WhenUnconfigured(): void
+    {
+        $this->get('/.well-known/passkey-endpoints');
+        $this->assertResponseCode(404);
+    }
+
+    /**
+     * @return void
+     */
+    public function testWellKnownReturns404WhenDisabled(): void
+    {
+        Configure::write('CakePasskeys.enabled', false);
+        Configure::write('CakePasskeys.wellKnown.enroll', '/account/passkeys/add');
+        $this->get('/.well-known/passkey-endpoints');
+        $this->assertResponseCode(404);
     }
 
     /**

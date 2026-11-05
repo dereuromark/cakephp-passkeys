@@ -16,6 +16,7 @@ use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Exception\TooManyRequestsException;
 use Cake\Http\Exception\UnauthorizedException;
 use Cake\Http\Response;
+use Cake\Routing\Router;
 use CakePasskeys\Contract\PasskeyUserInterface;
 use CakePasskeys\Contract\RateLimiterInterface;
 use CakePasskeys\Event\PasskeyEvent;
@@ -35,7 +36,7 @@ use function Cake\I18n\__d;
 /**
  * WebAuthn / passkey ceremony controller.
  *
- * Eight JSON actions:
+ * Nine JSON actions:
  *  - registerStart POST /passkeys/register/start (signed-in user)
  *  - registerFinish POST /passkeys/register/finish (signed-in user)
  *  - loginStart POST /passkeys/login/start (anonymous)
@@ -44,6 +45,7 @@ use function Cake\I18n\__d;
  *  - reauthFinish POST /passkeys/reauth/finish (signed-in user)
  *  - rename POST /passkeys/rename/{id} (owner only)
  *  - delete POST|DELETE /passkeys/delete/{id} (owner only)
+ *  - wellKnown GET /.well-known/passkey-endpoints (anonymous)
  *
  * The application's CSRF protection applies to all of them: the bundled
  * JavaScript sends the token it gets from `PasskeysHelper::endpointsMeta()`.
@@ -338,6 +340,35 @@ class PasskeysController extends Controller
         $this->fire('afterDelete', $passkey, $user->getPasskeyUserHandle());
 
         return $this->json(['deleted' => true]);
+    }
+
+    /**
+     * W3C "Well-Known URL for Passkey Endpoints" document for password managers.
+     *
+     * @throws \Cake\Http\Exception\NotFoundException
+     *
+     * @return \Cake\Http\Response
+     */
+    public function wellKnown(): Response
+    {
+        $this->getRequest()->allowMethod(['get']);
+        $payload = [];
+        foreach (['enroll', 'manage'] as $key) {
+            $url = Configure::read('CakePasskeys.wellKnown.' . $key);
+            if (!$url || (!is_string($url) && !is_array($url))) {
+                continue;
+            }
+            if (is_array($url)) {
+                // The request runs inside the plugin, so keep array URLs in the app.
+                $url += ['plugin' => false, 'prefix' => false];
+            }
+            $payload[$key] = Router::url($url, true);
+        }
+        if (!$payload) {
+            throw new NotFoundException();
+        }
+
+        return $this->json($payload);
     }
 
     /**

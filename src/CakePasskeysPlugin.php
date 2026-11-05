@@ -98,5 +98,9 @@ class CakePasskeysPlugin extends BasePlugin
             $r->connect('/rename/{id}', ['controller' => 'Passkeys', 'action' => 'rename'])->setPass(['id']);
             $r->connect('/delete/{id}', ['controller' => 'Passkeys', 'action' => 'delete'])->setPass(['id']);
         });
+        $routes->plugin('CakePasskeys', ['path' => '/'], function (RouteBuilder $r): void {
+            $r->connect('/.well-known/passkey-endpoints', ['controller' => 'Passkeys', 'action' => 'wellKnown'])
+                ->setMethods(['GET']);
+        });
     }
 }
