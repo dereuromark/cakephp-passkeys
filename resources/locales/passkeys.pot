@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 19:40+0000\n"
+"POT-Creation-Date: 2026-11-05 20:01+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -24,6 +24,9 @@ msgid "Invalid action name."
 msgstr ""
 
 msgid "Name cannot be empty."
+msgstr ""
+
+msgid "You cannot delete this passkey right now."
 msgstr ""
 
 msgid "Too many attempts. Try again later."

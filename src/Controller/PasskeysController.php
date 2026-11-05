@@ -322,6 +322,11 @@ class PasskeysController extends Controller
         $this->getRequest()->allowMethod(['post', 'delete']);
         $user = $this->resolveCurrentUser();
         $passkey = $this->fetchPasskeyOwnedBy($id, $user->getUserId());
+        $this->guard(
+            'beforeDelete',
+            ['user' => $user, 'passkey' => $passkey],
+            __d('passkeys', 'You cannot delete this passkey right now.'),
+        );
         $this->fetchTable('CakePasskeys.Passkeys')->deleteOrFail($passkey);
         // The entity still carries its fields after the delete.
         $this->fire('afterDelete', $passkey, $user->getPasskeyUserHandle());
@@ -540,26 +545,43 @@ class PasskeysController extends Controller
 
     /**
      * Lets the host refuse a registration, for example when the sign-in is
-     * not recent. A listener stops the event and may set a message as result.
+     * not recent.
      *
      * @param \CakePasskeys\Contract\PasskeyUserInterface $user
-     *
-     * @throws \Cake\Http\Exception\ForbiddenException
      *
      * @return void
      */
     private function guardRegistration(PasskeyUserInterface $user): void
     {
-        $event = new Event('CakePasskeys.beforeRegister', $this, ['user' => $user]);
+        $this->guard(
+            'beforeRegister',
+            ['user' => $user],
+            __d('passkeys', 'You cannot add a passkey right now.'),
+        );
+    }
+
+    /**
+     * Dispatches a `before*` event the host can stop to refuse the action. A
+     * string result becomes the message of the 403.
+     *
+     * @param string $name Event suffix.
+     * @param array<string, mixed> $data Event data.
+     * @param string $fallbackMessage Message when the listener sets none.
+     *
+     * @throws \Cake\Http\Exception\ForbiddenException
+     *
+     * @return void
+     */
+    private function guard(string $name, array $data, string $fallbackMessage): void
+    {
+        $event = new Event('CakePasskeys.' . $name, $this, $data);
         EventManager::instance()->dispatch($event);
         if (!$event->isStopped()) {
             return;
         }
         $result = $event->getResult();
 
-        throw new ForbiddenException(
-            is_string($result) && $result !== '' ? $result : __d('passkeys', 'You cannot add a passkey right now.'),
-        );
+        throw new ForbiddenException(is_string($result) && $result !== '' ? $result : $fallbackMessage);
     }
 
     /**

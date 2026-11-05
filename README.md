@@ -182,7 +182,7 @@ EventManager::instance()->on('CakePasskeys.beforeRegister', function (EventInter
 });
 ```
 
-Registering a passkey gives lasting access to the account, so asking for a recent sign-in here is a good default.
+Registering a passkey gives lasting access to the account, so asking for a recent sign-in here is a good default. `CakePasskeys.beforeDelete` works the same way for deleting one (with the passkey under `passkey`), so a stolen session cannot remove the owner's passkeys either.
 
 Attach listeners where they exist for every request, such as `Application::bootstrap()`:
 

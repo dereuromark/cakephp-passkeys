@@ -208,6 +208,35 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
+     * A host stops `beforeDelete` (say, the sign-in is not recent): 403, and
+     * the passkey stays.
+     *
+     * @return void
+     */
+    public function testBeforeDeleteListenerCanRefuseDeletion(): void
+    {
+        $id = $this->seedPasskey(1, 'Keep me');
+        $seen = null;
+        $listener = function (EventInterface $event) use (&$seen): void {
+            $seen = $event->getData('passkey')->name;
+            $event->stopPropagation();
+            $event->setResult('Sign in again first.');
+        };
+        EventManager::instance()->on('CakePasskeys.beforeDelete', $listener);
+        try {
+            $this->loginAs(1);
+            $this->post('/passkeys/delete/' . $id);
+        } finally {
+            EventManager::instance()->off('CakePasskeys.beforeDelete', $listener);
+        }
+
+        $this->assertResponseCode(403);
+        $this->assertResponseContains('Sign in again first.');
+        $this->assertSame('Keep me', $seen);
+        $this->assertTrue($this->getTableLocator()->get('CakePasskeys.Passkeys')->exists(['id' => $id]));
+    }
+
+    /**
      * @return void
      */
     public function testRenameUpdatesNameAndFiresEvent(): void

@@ -85,3 +85,6 @@ msgstr "Unbekannter Passkey."
 
 msgid "You cannot add a passkey right now."
 msgstr "Du kannst gerade keinen Passkey hinzufügen."
+
+msgid "You cannot delete this passkey right now."
+msgstr "Du kannst diesen Passkey gerade nicht löschen."
