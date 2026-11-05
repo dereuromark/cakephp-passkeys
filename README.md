@@ -19,7 +19,7 @@ Passkey (WebAuthn) sign-in for CakePHP 5.
 
 ## Requirements
 
-- PHP 8.2+, CakePHP 5.2+
+- PHP 8.2+, CakePHP 5.3+
 - HTTPS in production. Browsers only offer WebAuthn in a secure context; `http://localhost` counts as one for development.
 - A cache engine that keeps data between two requests (not `Null` or `Array`) for the challenges.
 

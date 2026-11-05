@@ -18,9 +18,9 @@
     },
     "require": {
         "php": ">=8.2",
-        "cakephp/cakephp": "^5.2",
+        "cakephp/cakephp": "^5.3",
         "cakephp/migrations": "^5.0",
-        "web-auth/webauthn-lib": "^5.0"
+        "web-auth/webauthn-lib": "^5.3.5"
     },
     "require-dev": {
         "dereuromark/cakephp-i18n-lint": "^0.1.2",

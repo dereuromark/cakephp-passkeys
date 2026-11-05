@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Events now carry the plugin's `PasskeysController` as subject instead of `null`, so listeners can reach the request and session.
+- Requires `cakephp/cakephp` `^5.3` (was `^5.2`; `cakephp/migrations` 5 already required 5.3, so 5.2 never installed) and `web-auth/webauthn-lib` `^5.3.5` (was `^5.0`; earlier releases carry security advisories, one about `allowed_origins`).
 
 ## [0.1.0] - 2026-10-07
 
