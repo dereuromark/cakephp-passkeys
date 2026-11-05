@@ -7,15 +7,12 @@ namespace CakePasskeys;
 use Cake\Cache\Cache;
 use Cake\Core\BasePlugin;
 use Cake\Core\Configure;
-use Cake\Core\ContainerInterface;
 use Cake\Core\PluginApplicationInterface;
 use Cake\I18n\ChainMessagesLoader;
 use Cake\I18n\I18n;
 use Cake\I18n\MessagesFileLoader;
 use Cake\I18n\Package;
 use Cake\Routing\RouteBuilder;
-use CakePasskeys\Contract\RateLimiterInterface;
-use CakePasskeys\Service\NullRateLimiter;
 
 class CakePasskeysPlugin extends BasePlugin
 {
@@ -83,14 +80,5 @@ class CakePasskeysPlugin extends BasePlugin
             $r->connect('/rename/{id}', ['controller' => 'Passkeys', 'action' => 'rename'])->setPass(['id']);
             $r->connect('/delete/{id}', ['controller' => 'Passkeys', 'action' => 'delete'])->setPass(['id']);
         });
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function services(ContainerInterface $container): void
-    {
-        $impl = Configure::read('CakePasskeys.rateLimiter');
-        $container->add(RateLimiterInterface::class, $impl ?: NullRateLimiter::class);
     }
 }

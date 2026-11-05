@@ -17,6 +17,7 @@ use Cake\Http\ServerRequest;
 use Cake\Http\Session;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
+use CakePasskeys\Contract\RateLimiterInterface;
 use CakePasskeys\Controller\PasskeysController;
 use CakePasskeys\Event\PasskeyEvent;
 use CakePasskeys\Service\WebAuthnService;
@@ -54,6 +55,7 @@ class PasskeysControllerTest extends TestCase
         // non-default path, others rely on the default `Auth.id`.
         Configure::write('CakePasskeys.session.userIdKey', 'Auth.id');
         Configure::write('CakePasskeys.session.persistIdentity', true);
+        Configure::write('CakePasskeys.rateLimiter', null);
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -234,6 +236,55 @@ class PasskeysControllerTest extends TestCase
         $this->assertResponseContains('Sign in again first.');
         $this->assertSame('Keep me', $seen);
         $this->assertTrue($this->getTableLocator()->get('CakePasskeys.Passkeys')->exists(['id' => $id]));
+    }
+
+    /**
+     * A full bucket answers 429, on the finish steps as well as on start.
+     *
+     * @param string $url
+     *
+     * @return void
+     */
+    #[DataProvider('throttledEndpoints')]
+    public function testThrottledEndpointAnswers429(string $url): void
+    {
+        Configure::write('CakePasskeys.rateLimiter', new class implements RateLimiterInterface {
+            public function hit(string $key, int $maxAttempts, int $decaySeconds): bool
+            {
+                return false;
+            }
+        });
+        $this->loginAs(1);
+        $this->post($url);
+        $this->assertResponseCode(429);
+    }
+
+    /**
+     * @return array<string, array<string>>
+     */
+    public static function throttledEndpoints(): array
+    {
+        return [
+            'login start' => ['/passkeys/login/start'],
+            'login finish' => ['/passkeys/login/finish'],
+            'register start' => ['/passkeys/register/start'],
+            'register finish' => ['/passkeys/register/finish'],
+        ];
+    }
+
+    /**
+     * @return void
+     */
+    public function testRateLimiterFalseTurnsLimitingOff(): void
+    {
+        Configure::write('CakePasskeys.rateLimiter', false);
+        Cache::drop('passkeys_rl_off');
+        Cache::setConfig('passkeys_rl_off', ['className' => 'Array']);
+        Configure::write('CakePasskeys.cache', 'passkeys_rl_off');
+        for ($i = 0; $i < 25; $i++) {
+            $this->post('/passkeys/login/start');
+            $this->assertResponseOk();
+        }
     }
 
     /**

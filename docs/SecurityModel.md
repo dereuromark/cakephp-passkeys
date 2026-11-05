@@ -43,7 +43,7 @@ Without `allowedOrigins`, a response is accepted from any HTTPS origin whose hos
 
 ### Rate limiting
 
-The plugin ships a limiter that does nothing. `login/start` can be called by anyone, so bind your own:
+By default the plugin counts requests in the `cache` engine (`CakePasskeys\Service\CacheRateLimiter`), in a fixed window per bucket, and answers 429 once a bucket is full. On engines without atomic `increment()` (File, for one) the count is best effort. To use your application's own limiter:
 
 ```php
 'CakePasskeys' => [
@@ -51,12 +51,14 @@ The plugin ships a limiter that does nothing. `login/start` can be called by any
 ],
 ```
 
-The class implements `CakePasskeys\Contract\RateLimiterInterface`. The plugin calls it with these buckets:
+The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns limiting off. The plugin calls it with these buckets:
 
 | Bucket | Limit |
 | --- | --- |
 | `passkeys.login.<ip>` | 20 per minute |
+| `passkeys.login_finish.<ip>` | 20 per minute |
 | `passkeys.register.<user id>` | 10 per minute |
+| `passkeys.register_finish.<user id>` | 10 per minute |
 | `passkeys.reauth.<user id>` | 20 per minute |
 
 ### Say who the current user is
