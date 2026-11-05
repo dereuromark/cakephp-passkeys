@@ -9,7 +9,7 @@ The plugin dispatches six events on the global event manager: four `after*` even
 | `CakePasskeys.afterRegister` | none | `registerFinish` |
 | `CakePasskeys.afterLogin` | none | `loginFinish` |
 | `CakePasskeys.afterRename` | `['old' => $old, 'new' => $new]` | `rename` |
-| `CakePasskeys.afterDelete` | none | `delete` |
+| `CakePasskeys.afterDelete` | none | `delete`, `bin/cake passkeys revoke` |
 | `CakePasskeys.beforeRegister` | `['user' => PasskeyUserInterface]`, no payload | `registerStart`, `registerFinish` |
 | `CakePasskeys.beforeDelete` | `['user' => PasskeyUserInterface, 'passkey' => Passkey]`, no payload | `delete` |
 
@@ -17,7 +17,7 @@ A listener that stops `beforeRegister` or `beforeDelete` refuses the action with
 
 An `afterLogin` listener can set an array as result; its keys are added to the JSON answer of `login/finish` (the plugin's own keys win). Use it to hand an API token to a client that does not run on cookies.
 
-The subject of every event is the plugin's `PasskeysController`, so a listener can reach the request and the session through `$event->getSubject()->getRequest()`. The payload is a `CakePasskeys\Event\PasskeyEvent` under `$event->getData('event')`.
+The subject of every event is the plugin's `PasskeysController`, so a listener can reach the request and the session through `$event->getSubject()->getRequest()`. The exception is `afterDelete` fired by the `passkeys revoke` command: there the subject is the `PasskeysRevokeCommand`, and the user handle is an empty string when the user row no longer exists. The payload is a `CakePasskeys\Event\PasskeyEvent` under `$event->getData('event')`.
 
 ## Event payload
 
