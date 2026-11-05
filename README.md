@@ -69,6 +69,9 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `ceremony.timeout` | `60000` | Milliseconds the browser waits for the authenticator. |
 | `mfa.sessionFlag` | `'CakePasskeys.mfa_satisfied'` | Session key set to `true` after a user-verified sign-in. |
 | `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |
+| `secondFactor.pendingUserKey` | `null` | Session key your password step writes the pending user id to. Turns on the second-factor endpoints. See [Passkey as a second factor](#passkey-as-a-second-factor). |
+| `secondFactor.pendingUserResolver` | `null` | Closure `fn (ServerRequest $request): string\|int\|null` for the pending user id. Wins over `pendingUserKey`. |
+| `secondFactor.redirect` | `null` | URL the JavaScript navigates to after the second factor. `null` uses `afterLoginRedirect`. |
 | `maxPerUser` | `5` | Passkeys per user. `0` for no limit. |
 | `login.emailHint` | `false` | Accept an email on `login/start`. See [Security](#security). |
 | `challengeTtl` | `300` | Seconds a challenge stays valid between start and finish. |
@@ -187,6 +190,47 @@ if (!Reauth::isFresh($this->request, 'change-email')) {
 
 A confirmation stays fresh for `reauthWindow` seconds (default 900).
 
+## Passkey as a second factor
+
+An app that signs in with a password and then asks for a second factor (a TOTP code, say) can accept a passkey for that second step. Either factor completes the sign-in.
+
+Your password step records who passed it. Write the user id to a session key once the password is verified, and point the plugin at that key:
+
+```php
+// config/app_local.php
+'CakePasskeys' => [
+    'secondFactor' => [
+        'pendingUserKey' => 'TwoFactor.pending_user_id',
+    ],
+],
+```
+
+```php
+// your login action, after the password check succeeded
+$this->request->getSession()->write('TwoFactor.pending_user_id', $user->id);
+```
+
+On the page that asks for the TOTP code, offer the passkey next to it:
+
+```php
+<?= $this->Passkeys->script() ?>
+<?= $this->Passkeys->endpointsMeta() ?>
+
+<button type="button" data-passkey-second-factor hidden>Use a passkey instead</button>
+```
+
+The button stays hidden in browsers without WebAuthn. It calls `second-factor/start`, which offers only the pending user's passkeys, and `second-factor/finish`, which accepts only an assertion by one of them. On success the plugin completes the sign-in as `login/finish` does: new session id, identity handed to `cakephp/authentication` (or written to `session.userIdKey`), `mfa.sessionFlag` set when user verification is required. It removes `pendingUserKey` from the session, dispatches `CakePasskeys.afterSecondFactor` and navigates to `secondFactor.redirect`.
+
+If the pending state does not live in one session key, set a resolver instead. It wins over `pendingUserKey`, and the plugin then leaves your state alone, so clear it yourself, for example in an `afterSecondFactor` listener:
+
+```php
+'secondFactor' => [
+    'pendingUserResolver' => fn (\Cake\Http\ServerRequest $request) => $request->getSession()->read('Login.pending.id'),
+],
+```
+
+Without a key or a resolver both endpoints answer 404. Without a pending user they answer 401, and `start` answers 400 when the pending user has no passkey. See [docs/SecurityModel.md](docs/SecurityModel.md#passkey-as-a-second-factor) for what your password step must guarantee.
+
 ## Events
 
 Dispatched on the global event manager. The payload is a `CakePasskeys\Event\PasskeyEvent` under the key `event`.
@@ -195,6 +239,7 @@ Dispatched on the global event manager. The payload is a `CakePasskeys\Event\Pas
 | --- | --- | --- |
 | `CakePasskeys.afterRegister` | a passkey was stored | |
 | `CakePasskeys.afterLogin` | a user signed in | |
+| `CakePasskeys.afterSecondFactor` | a passkey completed the second factor | |
 | `CakePasskeys.afterRename` | a passkey was renamed | `old`, `new` |
 | `CakePasskeys.afterDelete` | a passkey was deleted | |
 
@@ -262,6 +307,7 @@ Subject and text are in the `passkeys` translation domain.
 | --- | --- | --- |
 | `data-passkey-register` | button | registers a passkey, then reloads |
 | `data-passkey-authenticate` | button | signs in, then navigates to `redirectTo` |
+| `data-passkey-second-factor` | button | runs the [second factor](#passkey-as-a-second-factor), then navigates to `redirectTo` |
 | `data-passkey-conditional` | input | offers passkeys in the autofill dropdown |
 | `data-passkey-reauth-required="action"` | form | asks for a passkey before submitting |
 | `data-passkey-rename`, `data-passkey-delete` | button inside `[data-passkey-row]` | renames or deletes that passkey |
@@ -275,7 +321,7 @@ npm install @dereuromark/cakephp-passkeys
 ```
 
 ```js
-import { register, authenticate, conditional, reauth, rename, remove } from '@dereuromark/cakephp-passkeys';
+import { register, authenticate, conditional, reauth, secondFactor, rename, remove } from '@dereuromark/cakephp-passkeys';
 ```
 
 Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](docs/JsApi.md).
@@ -367,5 +413,4 @@ Each deletion by `revoke` or `prune` dispatches `CakePasskeys.afterDelete` with 
 
 ## Limitations
 
-- A passkey sign-in is a complete sign-in. Using a passkey as a second factor after a password is not supported: the login endpoints are anonymous and do not tie the passkey to the account that passed the first factor.
 - No attestation verification. `allowedAaguids` filters on the AAGUID the authenticator reports, which is not proven.

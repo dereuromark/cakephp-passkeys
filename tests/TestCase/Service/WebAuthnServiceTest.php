@@ -16,6 +16,7 @@ use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
 use CakePasskeys\Service\ChallengeStore;
 use CakePasskeys\Service\ConventionUserAdapter;
+use CakePasskeys\Service\Signals;
 use CakePasskeys\Service\UnknownCredentialException;
 use CakePasskeys\Service\UserResolver;
 use CakePasskeys\Service\WebAuthnException;
@@ -293,6 +294,91 @@ class WebAuthnServiceTest extends TestCase
 
         $this->expectException(WebAuthnException::class);
         $this->service->finishLogin([
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+    }
+
+    public function testSecondFactorSucceedsWithThePendingUsersPasskey(): void
+    {
+        $user = $this->makeUser(1);
+        $authenticator = new SoftAuthenticator();
+        $this->register($user, $authenticator);
+        $this->register($this->makeUser(2), new SoftAuthenticator());
+
+        $options = $this->service->startSecondFactor($user);
+
+        $this->assertSame(
+            [Signals::base64Url($authenticator->credentialId())],
+            array_column($options['allowCredentials'], 'id'),
+        );
+        $passkey = $this->service->finishSecondFactor($user, [
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+        $this->assertSame(1, (int)$passkey->user_id);
+        $this->assertNotNull($passkey->last_used_at);
+    }
+
+    public function testSecondFactorFollowsConfiguredUserVerification(): void
+    {
+        Configure::write('CakePasskeys.ceremony.userVerification', 'preferred');
+        $user = $this->makeUser(1);
+        $this->register($user, new SoftAuthenticator());
+
+        $this->assertSame('preferred', $this->service->startSecondFactor($user)['userVerification']);
+    }
+
+    public function testSecondFactorStartRefusesUserWithoutPasskeys(): void
+    {
+        $this->expectException(WebAuthnException::class);
+        $this->service->startSecondFactor($this->makeUser(1));
+    }
+
+    public function testSecondFactorRejectsPasskeyOfAnotherUser(): void
+    {
+        $this->register($this->makeUser(1), new SoftAuthenticator());
+        $other = new SoftAuthenticator();
+        $this->register($this->makeUser(2), $other);
+        $user = $this->makeUser(1);
+
+        $options = $this->service->startSecondFactor($user);
+
+        $this->expectException(WebAuthnException::class);
+        $this->expectExceptionMessage('Unknown passkey credential for this user.');
+        $this->service->finishSecondFactor($user, [
+            'challengeKey' => $options['challengeKey'],
+            'response' => $other->authenticate($options),
+        ]);
+    }
+
+    public function testSecondFactorRejectsChallengeOfAnotherUser(): void
+    {
+        $authenticator = new SoftAuthenticator();
+        $this->register($this->makeUser(1), $authenticator);
+        $this->register($this->makeUser(2), new SoftAuthenticator());
+
+        $options = $this->service->startSecondFactor($this->makeUser(2));
+
+        $this->expectException(WebAuthnException::class);
+        $this->expectExceptionMessage('Second-factor challenge does not belong to this user.');
+        $this->service->finishSecondFactor($this->makeUser(1), [
+            'challengeKey' => $options['challengeKey'],
+            'response' => $authenticator->authenticate($options),
+        ]);
+    }
+
+    public function testSecondFactorRejectsReauthChallenge(): void
+    {
+        $user = $this->makeUser(1);
+        $authenticator = new SoftAuthenticator();
+        $this->register($user, $authenticator);
+
+        $options = $this->service->startReauth($user);
+
+        $this->expectException(WebAuthnException::class);
+        $this->expectExceptionMessage('Second-factor challenge missing or expired.');
+        $this->service->finishSecondFactor($user, [
             'challengeKey' => $options['challengeKey'],
             'response' => $authenticator->authenticate($options),
         ]);

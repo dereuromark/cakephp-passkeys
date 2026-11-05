@@ -214,3 +214,5 @@ msgstr "Kept as the last passkey of their user: {0}. Use --include-last to delet
 
 msgid "Skipped passkey {0} ({1}) of user {2}: used since the scan."
 msgstr "Skipped passkey {0} ({1}) of user {2}: used since the scan."
+msgid "A passkey cannot be used for this sign-in."
+msgstr "A passkey cannot be used for this sign-in."

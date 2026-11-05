@@ -68,6 +68,8 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.wellKnown', ['enroll' => null, 'manage' => null]);
         Configure::write('CakePasskeys.notify', ['onRegister' => false, 'emailProfile' => 'default', 'manageUrl' => null]);
         Configure::write('CakePasskeys.signals', true);
+        Configure::write('CakePasskeys.secondFactor', ['pendingUserKey' => null, 'pendingUserResolver' => null, 'redirect' => null]);
+        Configure::write('CakePasskeys.afterLoginRedirect', '/');
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -168,6 +170,8 @@ class PasskeysControllerTest extends TestCase
             'loginFinish' => ['post', '/passkeys/login/finish'],
             'reauthStart' => ['post', '/passkeys/reauth/start'],
             'reauthFinish' => ['post', '/passkeys/reauth/finish'],
+            'secondFactorStart' => ['post', '/passkeys/second-factor/start'],
+            'secondFactorFinish' => ['post', '/passkeys/second-factor/finish'],
             'rename' => ['post', '/passkeys/rename/1'],
             'delete' => ['delete', '/passkeys/delete/1'],
         ];
@@ -1424,6 +1428,307 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.wellKnown.enroll', '/account/passkeys/add');
         $this->get('/.well-known/passkey-endpoints');
         $this->assertResponseCode(404);
+    }
+
+    /**
+     * Without a pending-user source the second-factor endpoints do not exist.
+     *
+     * @param string $url
+     *
+     * @return void
+     */
+    #[DataProvider('secondFactorEndpoints')]
+    public function testSecondFactorIsOffByDefault(string $url): void
+    {
+        $this->session(['TwoFactor' => ['pending_user_id' => 1]]);
+        $this->post($url);
+        $this->assertResponseCode(404);
+    }
+
+    /**
+     * @return array<string, array<string>>
+     */
+    public static function secondFactorEndpoints(): array
+    {
+        return [
+            'start' => ['/passkeys/second-factor/start'],
+            'finish' => ['/passkeys/second-factor/finish'],
+        ];
+    }
+
+    /**
+     * @param string $url
+     *
+     * @return void
+     */
+    #[DataProvider('secondFactorEndpoints')]
+    public function testSecondFactorWithoutPendingUserAnswers401(string $url): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $this->post($url);
+        $this->assertResponseCode(401);
+    }
+
+    /**
+     * A pending user that the user table no longer serves (deactivated) is
+     * treated like no pending user.
+     *
+     * @return void
+     */
+    public function testSecondFactorStartRefusesInactivePendingUser(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        Configure::write('CakePasskeys.users.activeColumn', 'is_active');
+        $conn = ConnectionManager::get('test');
+        assert($conn instanceof Connection);
+        $conn->execute('UPDATE users SET is_active = 0 WHERE id = 1');
+        $this->seedPasskey(1, 'Laptop');
+        $this->session(['TwoFactor' => ['pending_user_id' => 1]]);
+        try {
+            $this->post('/passkeys/second-factor/start');
+        } finally {
+            Configure::write('CakePasskeys.users.activeColumn', null);
+        }
+        $this->assertResponseCode(401);
+    }
+
+    /**
+     * @return void
+     */
+    public function testSecondFactorStartOffersOnlyThePendingUsersPasskeys(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $own = $this->seedPasskey(1, 'Alice laptop');
+        $this->seedPasskey(2, 'Bob laptop');
+        $this->session(['TwoFactor' => ['pending_user_id' => 1]]);
+
+        $this->post('/passkeys/second-factor/start');
+
+        $this->assertResponseOk();
+        $body = $this->decodeJsonBody();
+        $credentialId = (string)$this->getTableLocator()->get('CakePasskeys.Passkeys')->get($own)->credential_id;
+        $this->assertCount(1, $body['allowCredentials']);
+        $this->assertSame(Signals::base64Url($credentialId), $body['allowCredentials'][0]['id']);
+        $this->assertSame('required', $body['userVerification']);
+        $this->assertSession([$body['challengeKey']], 'CakePasskeys.second_factor_challenges');
+    }
+
+    /**
+     * @return void
+     */
+    public function testSecondFactorStartWithoutPasskeysAnswers400(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $this->seedPasskey(2, 'Bob laptop');
+        $this->session(['TwoFactor' => ['pending_user_id' => 1]]);
+
+        $this->post('/passkeys/second-factor/start');
+
+        $this->assertResponseCode(400);
+        $this->assertResponseContains('A passkey cannot be used for this sign-in.');
+    }
+
+    /**
+     * @return void
+     */
+    public function testSecondFactorResolverWinsOverSessionKey(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        Configure::write('CakePasskeys.secondFactor.pendingUserResolver', fn (ServerRequest $request): int => 2);
+        $this->seedPasskey(1, 'Alice laptop');
+        $bob = $this->seedPasskey(2, 'Bob laptop');
+        $this->session(['TwoFactor' => ['pending_user_id' => 1]]);
+
+        $this->post('/passkeys/second-factor/start');
+
+        $this->assertResponseOk();
+        $credentialId = (string)$this->getTableLocator()->get('CakePasskeys.Passkeys')->get($bob)->credential_id;
+        $this->assertSame(Signals::base64Url($credentialId), $this->decodeJsonBody()['allowCredentials'][0]['id']);
+    }
+
+    /**
+     * @param string $url
+     *
+     * @return void
+     */
+    #[DataProvider('secondFactorEndpoints')]
+    public function testSecondFactorIsThrottledPerPendingUser(string $url): void
+    {
+        $keys = [];
+        Configure::write('CakePasskeys.rateLimiter', new class ($keys) implements RateLimiterInterface {
+            /**
+             * @param array<string> $keys
+             */
+            public function __construct(public array &$keys)
+            {
+            }
+
+            public function hit(string $key, int $maxAttempts, int $decaySeconds): bool
+            {
+                $this->keys[] = $key;
+
+                return false;
+            }
+        });
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $this->session(['TwoFactor' => ['pending_user_id' => 1]]);
+
+        $this->post($url);
+
+        $this->assertResponseCode(429);
+        $this->assertStringStartsWith('passkeys.second_factor', $keys[0]);
+        $this->assertStringEndsWith('.1', $keys[0]);
+    }
+
+    /**
+     * The happy path hands the sign-in over like loginFinish does.
+     *
+     * @return void
+     */
+    public function testSecondFactorFinishCompletesTheSignIn(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        Configure::write('CakePasskeys.secondFactor.redirect', '/dashboard');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($this->seedPasskey(1, 'Stub'));
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->once())->method('finishSecondFactor')
+            ->with($this->callback(fn ($user): bool => (string)$user->getUserId() === '1'))
+            ->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy();
+        $request = (new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]))
+            ->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $session = $request->getSession();
+        $session->write('CakePasskeys.second_factor_challenges', ['k1']);
+        $session->write('TwoFactor.pending_user_id', 1);
+        $session->write('Auth', $this->getTableLocator()->get('Users')->get(2));
+
+        $fired = null;
+        $listener = function (EventInterface $event) use (&$fired): void {
+            $fired = $event;
+            $event->setResult(['token' => 'abc']);
+        };
+        EventManager::instance()->on('CakePasskeys.afterSecondFactor', $listener);
+        try {
+            $controller = $this->controllerWith($request, $service);
+            $response = $controller->secondFactorFinish();
+        } finally {
+            EventManager::instance()->off('CakePasskeys.afterSecondFactor', $listener);
+        }
+
+        $body = json_decode((string)$response->getBody(), true);
+        $this->assertSame(['redirectTo' => '/dashboard', 'mfaSatisfied' => true, 'userId' => 1, 'token' => 'abc'], $body);
+        $this->assertSame('alice@example.com', $session->read('Auth')->get('email'));
+        $this->assertCount(1, $auth->persisted);
+        $this->assertNull($session->read('TwoFactor.pending_user_id'));
+        $this->assertTrue($session->read('CakePasskeys.mfa_satisfied'));
+        $this->assertSame([], $session->read('CakePasskeys.second_factor_challenges'));
+        $this->assertInstanceOf(EventInterface::class, $fired);
+        $this->assertSame($controller, $fired->getSubject());
+        $this->assertSame($passkey, $fired->getData('event')->getPasskey());
+    }
+
+    /**
+     * Without required user verification the MFA flag is not set, and with a
+     * resolver the host's own pending state is left alone.
+     *
+     * @return void
+     */
+    public function testSecondFactorFinishWithResolverAndPreferredVerification(): void
+    {
+        Configure::write('CakePasskeys.ceremony.userVerification', 'preferred');
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        Configure::write('CakePasskeys.secondFactor.pendingUserResolver', fn (ServerRequest $request): int => 1);
+        Configure::write('CakePasskeys.afterLoginRedirect', '/home');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($this->seedPasskey(1, 'Stub'));
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishSecondFactor')->willReturn($passkey);
+
+        $request = (new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]))
+            ->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $session = $request->getSession();
+        $session->write('CakePasskeys.second_factor_challenges', ['k1']);
+        $session->write('TwoFactor.pending_user_id', 1);
+        $session->write('CakePasskeys.mfa_satisfied', true);
+
+        $response = $this->controllerWith($request, $service)->secondFactorFinish();
+
+        $body = json_decode((string)$response->getBody(), true);
+        $this->assertSame('/home', $body['redirectTo']);
+        $this->assertFalse($body['mfaSatisfied']);
+        $this->assertNull($session->read('CakePasskeys.mfa_satisfied'));
+        $this->assertSame(1, $session->read('TwoFactor.pending_user_id'));
+        $this->assertSame(1, (int)$session->read('Auth.id'));
+    }
+
+    /**
+     * A challenge started in another browser session is refused before any
+     * verification runs.
+     *
+     * @return void
+     */
+    public function testSecondFactorFinishRejectsChallengeFromAnotherSession(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->never())->method('finishSecondFactor');
+        $request = (new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]))
+            ->withParsedBody(['response' => [], 'challengeKey' => 'started-elsewhere']);
+        $request->getSession()->write('TwoFactor.pending_user_id', 1);
+        $request->getSession()->write('CakePasskeys.second_factor_challenges', ['mine']);
+
+        $this->expectException(BadRequestException::class);
+        $this->controllerWith($request, $service)->secondFactorFinish();
+    }
+
+    /**
+     * A login challenge of the same session does not count as a
+     * second-factor challenge.
+     *
+     * @return void
+     */
+    public function testSecondFactorFinishRejectsLoginChallenge(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $service = $this->createMock(WebAuthnService::class);
+        $service->expects($this->never())->method('finishSecondFactor');
+        $request = (new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]))
+            ->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('TwoFactor.pending_user_id', 1);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $this->expectException(BadRequestException::class);
+        $this->controllerWith($request, $service)->secondFactorFinish();
+    }
+
+    /**
+     * When verification fails (another user's passkey, a challenge of
+     * another user), nobody is signed in and the pending state stays.
+     *
+     * @return void
+     */
+    public function testSecondFactorFinishFailureSignsNobodyIn(): void
+    {
+        Configure::write('CakePasskeys.secondFactor.pendingUserKey', 'TwoFactor.pending_user_id');
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishSecondFactor')
+            ->willThrowException(new WebAuthnException('Unknown passkey credential for this user.'));
+        $request = (new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]))
+            ->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $session = $request->getSession();
+        $session->write('TwoFactor.pending_user_id', 1);
+        $session->write('CakePasskeys.second_factor_challenges', ['k1']);
+
+        try {
+            $this->controllerWith($request, $service)->secondFactorFinish();
+            $this->fail('Expected a BadRequestException.');
+        } catch (BadRequestException $e) {
+            $this->assertSame('Unknown passkey credential for this user.', $e->getMessage());
+        }
+        $this->assertNull($session->read('Auth.id'));
+        $this->assertNull($session->read('CakePasskeys.mfa_satisfied'));
+        $this->assertSame(1, $session->read('TwoFactor.pending_user_id'));
     }
 
     /**

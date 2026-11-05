@@ -46,7 +46,11 @@ The flag is not set when you lower `ceremony.userVerification` to `preferred` or
 
 ### Passkey as a second factor
 
-Not supported. The login endpoints are anonymous and do not know which account passed a first factor, so they cannot make sure the passkey belongs to that same account. Use [re-confirmation](#re-confirmation) for "prove it is still you" after a sign-in.
+After a password, a passkey can serve as the second factor, next to TOTP or instead of it. Your password step records the user who passed it (`secondFactor.pendingUserKey` or `secondFactor.pendingUserResolver`), and `second-factor/start` and `second-factor/finish` then accept only that user's passkeys. A success completes the sign-in like `login/finish` and dispatches `CakePasskeys.afterSecondFactor`. Setup is in the README under "Passkey as a second factor".
+
+`mfaSatisfied` in the answer and the `mfa.sessionFlag` follow `ceremony.userVerification` as for a sign-in. The second factor itself is done once `second-factor/finish` succeeds, whatever the flag says.
+
+Use [re-confirmation](#re-confirmation) instead for "prove it is still you" after a complete sign-in.
 
 ## Re-confirmation
 

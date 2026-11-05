@@ -12,7 +12,17 @@
  * we switch to a prefetch-on-mouseenter strategy.
  */
 
-import { authenticate, conditional, isConditionalSupported, isSupported, reauth, register, remove, rename } from './core';
+import {
+    authenticate,
+    conditional,
+    isConditionalSupported,
+    isSupported,
+    reauth,
+    register,
+    remove,
+    rename,
+    secondFactor,
+} from './core';
 import { signalAcceptedCredentials, signalCurrentUser, signalsEnabled } from './signals';
 import type { Endpoints, UserSignalData } from './types';
 
@@ -21,7 +31,7 @@ export function bind(root: ParentNode = document): void {
     if (!endpoints) return;
 
     if (isSupported()) {
-        root.querySelectorAll<HTMLElement>('[data-passkey-authenticate]').forEach((el) => {
+        root.querySelectorAll<HTMLElement>('[data-passkey-authenticate], [data-passkey-second-factor]').forEach((el) => {
             if ('hidden' in el) (el as HTMLElement).hidden = false;
         });
     }
@@ -49,6 +59,21 @@ export function bind(root: ParentNode = document): void {
                 const result = await authenticate({ endpoints });
                 if (result.redirectTo) window.location.assign(result.redirectTo);
             } catch (e) {
+                announceError(e);
+            }
+        });
+    });
+
+    root.querySelectorAll<HTMLButtonElement>('[data-passkey-second-factor]').forEach((btn) => {
+        if (btn.dataset.passkeyBound === '1') return;
+        btn.dataset.passkeyBound = '1';
+        btn.addEventListener('click', async () => {
+            btn.disabled = true;
+            try {
+                const result = await secondFactor({ endpoints });
+                if (result.redirectTo) window.location.assign(result.redirectTo);
+            } catch (e) {
+                btn.disabled = false;
                 announceError(e);
             }
         });

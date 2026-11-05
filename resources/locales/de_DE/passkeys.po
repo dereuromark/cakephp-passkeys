@@ -214,3 +214,5 @@ msgstr "Als letzter Passkey ihres Benutzers behalten: {0}. Mit --include-last we
 
 msgid "Skipped passkey {0} ({1}) of user {2}: used since the scan."
 msgstr "Passkey {0} ({1}) von Benutzer {2} übersprungen: seit der Prüfung benutzt."
+msgid "A passkey cannot be used for this sign-in."
+msgstr "Für diese Anmeldung kannst du keinen Passkey verwenden."

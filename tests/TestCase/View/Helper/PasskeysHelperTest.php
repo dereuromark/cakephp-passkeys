@@ -115,6 +115,8 @@ class PasskeysHelperTest extends TestCase
         $this->assertSame('tok<en', $config['csrfToken']);
         $this->assertSame('/passkeys/rename/__id__', $config['rename']);
         $this->assertSame('/passkeys/delete/__id__', $config['delete']);
+        $this->assertSame('/passkeys/second-factor/start', $config['secondFactorStart']);
+        $this->assertSame('/passkeys/second-factor/finish', $config['secondFactorFinish']);
         $this->assertStringNotContainsString('tok<en', $html);
     }
 

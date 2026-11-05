@@ -29,6 +29,7 @@ use CakePasskeys\Service\ChallengeStore;
 use CakePasskeys\Service\ConventionUserAdapter;
 use CakePasskeys\Service\IdentityResolver;
 use CakePasskeys\Service\NullRateLimiter;
+use CakePasskeys\Service\SecondFactor;
 use CakePasskeys\Service\Signals;
 use CakePasskeys\Service\UnknownCredentialException;
 use CakePasskeys\Service\UserResolver;
@@ -41,13 +42,15 @@ use function Cake\I18n\__d;
 /**
  * WebAuthn / passkey ceremony controller.
  *
- * Nine JSON actions:
+ * Eleven JSON actions:
  *  - registerStart POST /passkeys/register/start (signed-in user)
  *  - registerFinish POST /passkeys/register/finish (signed-in user)
  *  - loginStart POST /passkeys/login/start (anonymous)
  *  - loginFinish POST /passkeys/login/finish (anonymous)
  *  - reauthStart POST /passkeys/reauth/start (signed-in user)
  *  - reauthFinish POST /passkeys/reauth/finish (signed-in user)
+ *  - secondFactorStart POST /passkeys/second-factor/start (pending user)
+ *  - secondFactorFinish POST /passkeys/second-factor/finish (pending user)
  *  - rename POST /passkeys/rename/{id} (owner only)
  *  - delete POST|DELETE /passkeys/delete/{id} (owner only)
  *  - wellKnown GET /.well-known/passkey-endpoints (anonymous)
@@ -70,6 +73,13 @@ class PasskeysController extends Controller
      * @var string
      */
     protected const SESSION_LOGIN_CHALLENGES = 'CakePasskeys.login_challenges';
+
+    /**
+     * Session key holding the second-factor challenges this session started.
+     *
+     * @var string
+     */
+    protected const SESSION_SECOND_FACTOR_CHALLENGES = 'CakePasskeys.second_factor_challenges';
 
     /**
      * A page can have a conditional-UI request pending and a button click on
@@ -182,7 +192,7 @@ class PasskeysController extends Controller
         $this->throttle('passkeys.login.' . $this->getRequest()->clientIp(), 20, 60);
 
         $options = $this->webauthn()->startLogin($this->emailHint());
-        $this->rememberLoginChallenge((string)$options['challengeKey']);
+        $this->rememberChallenge(static::SESSION_LOGIN_CHALLENGES, (string)$options['challengeKey']);
 
         return $this->json($options);
     }
@@ -195,7 +205,7 @@ class PasskeysController extends Controller
         $this->getRequest()->allowMethod(['post']);
         $this->throttle('passkeys.login_finish.' . $this->getRequest()->clientIp(), 20, 60);
         $body = (array)$this->getRequest()->getParsedBody();
-        if (!$this->forgetLoginChallenge((string)($body['challengeKey'] ?? ''))) {
+        if (!$this->forgetChallenge(static::SESSION_LOGIN_CHALLENGES, (string)($body['challengeKey'] ?? ''))) {
             // The challenge was started in another browser session. Finishing
             // it here would sign this browser in as whoever answered it.
             throw new BadRequestException(__d('passkeys', 'Login challenge missing or expired.'));
@@ -212,27 +222,7 @@ class PasskeysController extends Controller
             throw new BadRequestException(__d('passkeys', 'Unknown passkey credential.'));
         }
 
-        $session = $this->getRequest()->getSession();
-        // Rotate the session id before any identity is written, so an id
-        // planted before the login is worthless afterwards.
-        $session->renew();
-        $userVerified = $this->requiresUserVerification();
-        $mfaFlag = (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied');
-        if ($userVerified) {
-            $session->write($mfaFlag, true);
-        } else {
-            // A flag left by an earlier sign-in must not carry over.
-            $session->delete($mfaFlag);
-        }
-        $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
-        $rootKey = explode('.', $userIdKey)[0];
-        // Skip the id when the authenticator just stored the identity under
-        // the same root key (entity, nested array or bare primary key alike):
-        // the write would clobber it.
-        $identityAtRoot = $this->persistIdentity($user, $rootKey);
-        if ($userIdKey !== '' && !$identityAtRoot) {
-            $session->write($userIdKey, $passkey->user_id);
-        }
+        $userVerified = $this->signIn($user, $passkey->user_id);
         $event = $this->fire('afterLogin', $passkey, $user->getPasskeyUserHandle());
         // A listener may add to the answer, e.g. a token for API clients.
         $extra = $event->getResult();
@@ -292,6 +282,67 @@ class PasskeysController extends Controller
         ]);
 
         return $this->json(['ok' => true, 'until' => $until]);
+    }
+
+    /**
+     * Second factor after the host's password step: the passkey must belong
+     * to the user the host recorded as pending.
+     *
+     * @throws \Cake\Http\Exception\BadRequestException
+     *
+     * @return \Cake\Http\Response
+     */
+    public function secondFactorStart(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $userId = $this->pendingUserId();
+        $this->throttle('passkeys.second_factor.' . $userId, 10, 60);
+        $user = $this->resolvePendingUser($userId);
+
+        try {
+            $options = $this->webauthn()->startSecondFactor($user);
+        } catch (WebAuthnException) {
+            throw new BadRequestException(__d('passkeys', 'A passkey cannot be used for this sign-in.'));
+        }
+        $this->rememberChallenge(static::SESSION_SECOND_FACTOR_CHALLENGES, (string)$options['challengeKey']);
+
+        return $this->json($options);
+    }
+
+    /**
+     * @throws \Cake\Http\Exception\BadRequestException
+     *
+     * @return \Cake\Http\Response
+     */
+    public function secondFactorFinish(): Response
+    {
+        $this->getRequest()->allowMethod(['post']);
+        $userId = $this->pendingUserId();
+        $this->throttle('passkeys.second_factor_finish.' . $userId, 10, 60);
+        $user = $this->resolvePendingUser($userId);
+        $body = (array)$this->getRequest()->getParsedBody();
+        if (!$this->forgetChallenge(static::SESSION_SECOND_FACTOR_CHALLENGES, (string)($body['challengeKey'] ?? ''))) {
+            throw new BadRequestException(__d('passkeys', 'Login challenge missing or expired.'));
+        }
+        try {
+            // Also checks that the challenge was issued for this pending user.
+            $passkey = $this->webauthn()->finishSecondFactor($user, $body);
+        } catch (WebAuthnException $e) {
+            throw new BadRequestException($e->getMessage());
+        }
+
+        SecondFactor::clearPending($this->getRequest());
+        $userVerified = $this->signIn($user, $passkey->user_id);
+        $event = $this->fire('afterSecondFactor', $passkey, $user->getPasskeyUserHandle());
+        $extra = $event->getResult();
+        $redirect = Configure::read('CakePasskeys.secondFactor.redirect')
+            ?? Configure::read('CakePasskeys.afterLoginRedirect', '/');
+
+        return $this->json([
+            'redirectTo' => (string)$redirect,
+            'mfaSatisfied' => $userVerified,
+            'userId' => $passkey->user_id,
+        ] + (is_array($extra) ? $extra : []));
     }
 
     /**
@@ -408,6 +459,42 @@ class PasskeysController extends Controller
     }
 
     /**
+     * @throws \Cake\Http\Exception\NotFoundException When the feature is off
+     * @throws \Cake\Http\Exception\UnauthorizedException Without a pending user
+     *
+     * @return string|int
+     */
+    private function pendingUserId(): string|int
+    {
+        if (!SecondFactor::enabled()) {
+            throw new NotFoundException();
+        }
+        $id = SecondFactor::pendingUserId($this->getRequest());
+        if ($id === null) {
+            throw new UnauthorizedException();
+        }
+
+        return $id;
+    }
+
+    /**
+     * @param string|int $id Pending user id.
+     *
+     * @throws \Cake\Http\Exception\UnauthorizedException
+     *
+     * @return \CakePasskeys\Contract\PasskeyUserInterface
+     */
+    private function resolvePendingUser(string|int $id): PasskeyUserInterface
+    {
+        $user = (new UserResolver())->byId($id);
+        if ($user === null || !$user->isPasskeyEligible()) {
+            throw new UnauthorizedException();
+        }
+
+        return $user;
+    }
+
+    /**
      * @throws \Cake\Http\Exception\ForbiddenException
      * @throws \Cake\Http\Exception\UnauthorizedException
      *
@@ -484,38 +571,72 @@ class PasskeysController extends Controller
     }
 
     /**
+     * @param string $sessionKey Where the open challenges of this kind live.
      * @param string $challengeKey
      *
      * @return void
      */
-    private function rememberLoginChallenge(string $challengeKey): void
+    private function rememberChallenge(string $sessionKey, string $challengeKey): void
     {
         $session = $this->getRequest()->getSession();
-        $open = (array)$session->read(static::SESSION_LOGIN_CHALLENGES);
+        $open = (array)$session->read($sessionKey);
         $open[] = $challengeKey;
-        $session->write(
-            static::SESSION_LOGIN_CHALLENGES,
-            array_slice($open, -static::MAX_OPEN_LOGIN_CHALLENGES),
-        );
+        $session->write($sessionKey, array_slice($open, -static::MAX_OPEN_LOGIN_CHALLENGES));
     }
 
     /**
+     * @param string $sessionKey Where the open challenges of this kind live.
      * @param string $challengeKey
      *
      * @return bool Whether this session had started that challenge
      */
-    private function forgetLoginChallenge(string $challengeKey): bool
+    private function forgetChallenge(string $sessionKey, string $challengeKey): bool
     {
         $session = $this->getRequest()->getSession();
-        $open = (array)$session->read(static::SESSION_LOGIN_CHALLENGES);
+        $open = (array)$session->read($sessionKey);
         $index = $challengeKey === '' ? false : array_search($challengeKey, $open, true);
         if ($index === false) {
             return false;
         }
         unset($open[$index]);
-        $session->write(static::SESSION_LOGIN_CHALLENGES, array_values($open));
+        $session->write($sessionKey, array_values($open));
 
         return true;
+    }
+
+    /**
+     * Completes a sign-in: new session id, MFA flag, identity hand-off.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param string|int $userId
+     *
+     * @return bool Whether the passkey proved user verification
+     */
+    private function signIn(PasskeyUserInterface $user, string|int $userId): bool
+    {
+        $session = $this->getRequest()->getSession();
+        // Rotate the session id before any identity is written, so an id
+        // planted before the login is worthless afterwards.
+        $session->renew();
+        $userVerified = $this->requiresUserVerification();
+        $mfaFlag = (string)Configure::read('CakePasskeys.mfa.sessionFlag', 'CakePasskeys.mfa_satisfied');
+        if ($userVerified) {
+            $session->write($mfaFlag, true);
+        } else {
+            // A flag left by an earlier sign-in must not carry over.
+            $session->delete($mfaFlag);
+        }
+        $userIdKey = (string)Configure::read('CakePasskeys.session.userIdKey', 'Auth.id');
+        $rootKey = explode('.', $userIdKey)[0];
+        // Skip the id when the authenticator just stored the identity under
+        // the same root key (entity, nested array or bare primary key alike):
+        // the write would clobber it.
+        $identityAtRoot = $this->persistIdentity($user, $rootKey);
+        if ($userIdKey !== '' && !$identityAtRoot) {
+            $session->write($userIdKey, $userId);
+        }
+
+        return $userVerified;
     }
 
     /**

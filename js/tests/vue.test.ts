@@ -26,6 +26,7 @@ describe('vue usePasskey', () => {
         const api = usePasskey(endpoints);
         expect(typeof api.register).toBe('function');
         expect(typeof api.authenticate).toBe('function');
+        expect(typeof api.secondFactor).toBe('function');
         expect(api.isLoading.value).toBe(false);
         expect(api.error.value).toBeNull();
     });

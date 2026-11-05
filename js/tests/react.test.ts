@@ -40,6 +40,7 @@ describe('react usePasskey', () => {
         const hook = renderHook(() => usePasskey(endpoints));
         expect(typeof hook.current.register).toBe('function');
         expect(typeof hook.current.authenticate).toBe('function');
+        expect(typeof hook.current.secondFactor).toBe('function');
         expect(hook.current.isLoading).toBe(false);
         expect(hook.current.error).toBeNull();
     });

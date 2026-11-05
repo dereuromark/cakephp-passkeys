@@ -24,6 +24,9 @@ Drop the script tag once per page that uses passkeys, then sprinkle
 <!-- Login button -->
 <?= $this->Passkeys->loginButton() ?>
 
+<!-- Second factor after the password step (hidden without WebAuthn) -->
+<button type="button" data-passkey-second-factor hidden>Use a passkey instead</button>
+
 <!-- Conditional UI on the email input -->
 <input name="email" type="email"
        autocomplete="username webauthn"
@@ -54,7 +57,7 @@ re-running `bind()` is safe).
 
 ```js
 // Core ceremony helpers
-import { register, authenticate, conditional, reauth, rename, remove } from '@dereuromark/cakephp-passkeys';
+import { register, authenticate, conditional, reauth, secondFactor, rename, remove } from '@dereuromark/cakephp-passkeys';
 
 // Data-attribute binder (manual call if you build your own bundle)
 import { bind } from '@dereuromark/cakephp-passkeys/attributes';
@@ -70,11 +73,20 @@ import {
 } from '@dereuromark/cakephp-passkeys/errors';
 ```
 
+`secondFactor({ endpoints })` runs the second factor for the user your
+password step left pending. It resolves with `{ redirectTo, mfaSatisfied,
+userId }` and leaves the navigation to you, like `authenticate()`. A
+`PasskeyServerError` with `status` 401 means no user is pending, 404 that
+the feature is not configured.
+
 ## Framework adapters
 
 Each adapter is ~1 kB gzipped on top of the ~1.6 kB gzipped core.
 SSR-safe where applicable (React, Vue): the hook returns no-ops on the
 server, full functions after hydration.
+
+The React and Vue hooks return `register`, `authenticate` and
+`secondFactor`, plus `isLoading` and `error`.
 
 ### React
 
@@ -120,6 +132,7 @@ const { register, isLoading, error } = usePasskey(props.endpoints);
 
 <button x-passkey-register data-passkey-name-prompt>Add a passkey</button>
 <input x-passkey-conditional autocomplete="username webauthn">
+<button x-passkey-second-factor hidden>Use a passkey instead</button>
 ```
 
 ### Stimulus
@@ -128,6 +141,7 @@ const { register, isLoading, error } = usePasskey(props.endpoints);
 <div data-controller="passkey" data-passkey-endpoints-value='{ "registerStart": "...", "registerFinish": "...", ... }'>
     <button data-action="passkey#register">Add a passkey</button>
     <button data-action="passkey#authenticate">Sign in with a passkey</button>
+    <button data-action="passkey#secondFactor">Use a passkey instead</button>
 </div>
 ```
 

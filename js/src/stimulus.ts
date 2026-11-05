@@ -2,13 +2,13 @@
  * Stimulus adapter — controller class consumers register on their app.
  *
  * The host page wires endpoints via a Stimulus value (`data-passkey-endpoints-value`)
- * and uses `data-action="click->passkey#register"` / `passkey#authenticate`
+ * and uses `data-action="click->passkey#register"` / `passkey#authenticate` / `passkey#secondFactor`
  * to drive the ceremonies. We deliberately do not auto-register the
  * controller so apps stay in control of their identifier namespace.
  */
 
 import { Controller } from '@hotwired/stimulus';
-import { register, authenticate } from './core';
+import { register, authenticate, secondFactor } from './core';
 import type { Endpoints } from './types';
 
 export class PasskeyController extends Controller<HTMLElement> {
@@ -27,6 +27,12 @@ export class PasskeyController extends Controller<HTMLElement> {
     async authenticate(event: Event): Promise<void> {
         event.preventDefault();
         const result = await authenticate({ endpoints: this.endpointsValue });
+        if (result.redirectTo) window.location.assign(result.redirectTo);
+    }
+
+    async secondFactor(event: Event): Promise<void> {
+        event.preventDefault();
+        const result = await secondFactor({ endpoints: this.endpointsValue });
         if (result.redirectTo) window.location.assign(result.redirectTo);
     }
 }

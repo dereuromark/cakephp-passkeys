@@ -99,6 +99,8 @@ class CakePasskeysPlugin extends BasePlugin
             $r->connect('/login/finish', ['controller' => 'Passkeys', 'action' => 'loginFinish']);
             $r->connect('/reauth/start', ['controller' => 'Passkeys', 'action' => 'reauthStart']);
             $r->connect('/reauth/finish', ['controller' => 'Passkeys', 'action' => 'reauthFinish']);
+            $r->connect('/second-factor/start', ['controller' => 'Passkeys', 'action' => 'secondFactorStart']);
+            $r->connect('/second-factor/finish', ['controller' => 'Passkeys', 'action' => 'secondFactorFinish']);
             $r->connect('/rename/{id}', ['controller' => 'Passkeys', 'action' => 'rename'])->setPass(['id']);
             $r->connect('/delete/{id}', ['controller' => 'Passkeys', 'action' => 'delete'])->setPass(['id']);
         });

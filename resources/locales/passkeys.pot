@@ -5,7 +5,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
-"POT-Creation-Date: 2026-11-05 22:16+0000\n"
+"POT-Creation-Date: 2026-11-05 22:18+0000\n"
 "PO-Revision-Date: YYYY-mm-DD HH:MM+ZZZZ\n"
 "Last-Translator: NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <EMAIL@ADDRESS>\n"
@@ -108,6 +108,9 @@ msgid "Unknown passkey credential."
 msgstr ""
 
 msgid "Invalid action name."
+msgstr ""
+
+msgid "A passkey cannot be used for this sign-in."
 msgstr ""
 
 msgid "Name cannot be empty."

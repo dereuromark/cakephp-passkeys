@@ -5,6 +5,9 @@ export interface Endpoints {
     loginFinish: string;
     reauthStart: string;
     reauthFinish: string;
+    /** Second factor after a password; only answers when the host configured it. */
+    secondFactorStart?: string;
+    secondFactorFinish?: string;
     /** URL with an `__id__` placeholder for the passkey id. */
     rename?: string;
     /** URL with an `__id__` placeholder for the passkey id. */
