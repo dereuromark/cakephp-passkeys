@@ -51,7 +51,7 @@ By default the plugin counts requests in the `passkeys_rate_limit` cache config 
 ],
 ```
 
-The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns limiting off. The sign-in buckets are keyed by `ServerRequest::clientIp()`; behind a reverse proxy set `App.trustProxy`, or all visitors share one bucket. The plugin calls it with these buckets:
+The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns limiting off. The sign-in buckets are keyed by `ServerRequest::clientIp()`. Behind a reverse proxy, call `$request->setTrustedProxies([...])` with the proxies' addresses in an early middleware, or all visitors share one bucket; only trust proxies that overwrite the forwarded headers. The plugin calls it with these buckets:
 
 | Bucket | Limit |
 | --- | --- |
