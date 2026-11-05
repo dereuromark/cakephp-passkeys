@@ -7,8 +7,10 @@ namespace CakePasskeys\Test\TestCase;
 use Cake\Core\Configure;
 use Cake\Http\BaseApplication;
 use Cake\Http\MiddlewareQueue;
+use Cake\I18n\I18n;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\CakePasskeysPlugin;
+use function Cake\I18n\__d;
 
 class CakePasskeysPluginTest extends TestCase
 {
@@ -45,6 +47,35 @@ class CakePasskeysPluginTest extends TestCase
         };
         (new CakePasskeysPlugin())->bootstrap($app);
         $this->assertSame(10, Configure::read('CakePasskeys.maxPerUser'));
+    }
+
+    public function testBootstrapLoadsPluginTranslations(): void
+    {
+        $app = new class (CONFIG) extends BaseApplication
+        {
+            public function middleware(MiddlewareQueue $m): MiddlewareQueue
+            {
+                return $m;
+            }
+        };
+        $app->addPlugin(CakePasskeysPlugin::class);
+        // A host app's own locale folder, without any passkeys.po in it.
+        $appLocales = TMP . 'app_locales' . DS;
+        if (!is_dir($appLocales)) {
+            mkdir($appLocales, 0777, true);
+        }
+        Configure::write('App.paths.locales', [$appLocales]);
+        I18n::clear();
+        (new CakePasskeysPlugin())->bootstrap($app);
+        $locale = I18n::getLocale();
+        I18n::setLocale('de_DE');
+        try {
+            $this->assertSame('Hinzugefügt', __d('passkeys', 'Added'));
+        } finally {
+            I18n::setLocale($locale);
+            Configure::delete('App.paths.locales');
+            I18n::clear();
+        }
     }
 
     public function testJsVersionConstantExists(): void
