@@ -29,6 +29,8 @@ use CakePasskeys\Service\ChallengeStore;
 use CakePasskeys\Service\ConventionUserAdapter;
 use CakePasskeys\Service\IdentityResolver;
 use CakePasskeys\Service\NullRateLimiter;
+use CakePasskeys\Service\Signals;
+use CakePasskeys\Service\UnknownCredentialException;
 use CakePasskeys\Service\UserResolver;
 use CakePasskeys\Service\WebAuthnException;
 use CakePasskeys\Service\WebAuthnService;
@@ -200,6 +202,8 @@ class PasskeysController extends Controller
         }
         try {
             $passkey = $this->webauthn()->finishLogin($body);
+        } catch (UnknownCredentialException) {
+            return $this->unknownCredential();
         } catch (WebAuthnException $e) {
             throw new BadRequestException($e->getMessage());
         }
@@ -343,7 +347,35 @@ class PasskeysController extends Controller
         // The entity still carries its fields after the delete.
         $this->fire('afterDelete', $passkey, $user->getPasskeyUserHandle());
 
-        return $this->json(['deleted' => true]);
+        $payload = ['deleted' => true];
+        if (Signals::enabled()) {
+            $payload += (new Signals())->acceptedCredentials($user);
+        }
+
+        return $this->json($payload);
+    }
+
+    /**
+     * A sign-in with a credential the server does not store. With signals on,
+     * the body carries a code so the browser can drop the passkey; the message
+     * stays the same either way.
+     *
+     * @throws \Cake\Http\Exception\BadRequestException
+     *
+     * @return \Cake\Http\Response
+     */
+    private function unknownCredential(): Response
+    {
+        $message = __d('passkeys', 'Unknown passkey credential.');
+        if (!Signals::enabled()) {
+            throw new BadRequestException($message);
+        }
+
+        return $this->json([
+            'message' => $message,
+            'code' => 400,
+            'error' => Signals::UNKNOWN_CREDENTIAL,
+        ], 400);
     }
 
     /**

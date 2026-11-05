@@ -24,6 +24,10 @@ use Cake\TestSuite\TestCase;
 use CakePasskeys\Contract\RateLimiterInterface;
 use CakePasskeys\Controller\PasskeysController;
 use CakePasskeys\Event\PasskeyEvent;
+use CakePasskeys\Service\Signals;
+use CakePasskeys\Service\UnknownCredentialException;
+use CakePasskeys\Service\UserResolver;
+use CakePasskeys\Service\WebAuthnException;
 use CakePasskeys\Service\WebAuthnService;
 use CakePasskeys\Test\AuthenticationServiceSpy;
 use Migrations\Migrations;
@@ -63,6 +67,7 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.rateLimiter', null);
         Configure::write('CakePasskeys.wellKnown', ['enroll' => null, 'manage' => null]);
         Configure::write('CakePasskeys.notify', ['onRegister' => false, 'emailProfile' => 'default', 'manageUrl' => null]);
+        Configure::write('CakePasskeys.signals', true);
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -359,6 +364,107 @@ class PasskeysControllerTest extends TestCase
             $this->getTableLocator()->get('CakePasskeys.Passkeys')->exists(['id' => $id]),
         );
         $this->assertTrue($fired);
+    }
+
+    /**
+     * The delete answer lists the passkeys the user still has, so the browser
+     * can drop the deleted one from the authenticator.
+     *
+     * @return void
+     */
+    public function testDeleteReturnsAcceptedCredentialsForSignals(): void
+    {
+        $this->loginAs(1);
+        $deleted = $this->seedPasskey(1, 'Old');
+        $kept = $this->seedPasskey(1, 'Kept');
+        $this->seedPasskey(2, 'Not mine');
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
+        $keptCredential = (string)$table->get($kept)->get('credential_id');
+        $user = (new UserResolver())->byId(1);
+        $this->assertNotNull($user);
+
+        $this->delete("/passkeys/delete/{$deleted}");
+
+        $this->assertResponseOk();
+        $body = $this->decodeJsonBody();
+        $this->assertTrue($body['deleted']);
+        $this->assertSame('localhost', $body['rpId']);
+        $this->assertSame(Signals::base64Url($user->getPasskeyUserHandle()), $body['userHandle']);
+        $this->assertSame([Signals::base64Url($keptCredential)], $body['acceptedCredentialIds']);
+    }
+
+    /**
+     * @return void
+     */
+    public function testDeleteOmitsSignalDataWhenSignalsAreOff(): void
+    {
+        Configure::write('CakePasskeys.signals', false);
+        $this->loginAs(1);
+        $id = $this->seedPasskey(1, 'Old');
+
+        $this->delete("/passkeys/delete/{$id}");
+
+        $this->assertResponseOk();
+        $this->assertSame(['deleted' => true], $this->decodeJsonBody());
+    }
+
+    /**
+     * A sign-in with a credential the server does not know answers with a
+     * code the browser can act on; the message stays generic.
+     *
+     * @return void
+     */
+    public function testLoginFinishReportsUnknownCredentialCode(): void
+    {
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willThrowException(new UnknownCredentialException('Unknown passkey credential.'));
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $response = $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame(400, $response->getStatusCode());
+        $body = json_decode((string)$response->getBody(), true);
+        $this->assertSame(Signals::UNKNOWN_CREDENTIAL, $body['error']);
+        $this->assertSame('Unknown passkey credential.', $body['message']);
+    }
+
+    /**
+     * Any other failure, and every failure with signals off, stays a plain
+     * 400 without the code.
+     *
+     * @param \CakePasskeys\Service\WebAuthnException $exception
+     * @param bool $signals
+     *
+     * @return void
+     */
+    #[DataProvider('loginFailuresWithoutCode')]
+    public function testLoginFinishSendsNoCodeForOtherFailures(WebAuthnException $exception, bool $signals): void
+    {
+        Configure::write('CakePasskeys.signals', $signals);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willThrowException($exception);
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1']);
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+
+        $this->expectException(BadRequestException::class);
+        $this->controllerWith($request, $service)->loginFinish();
+    }
+
+    /**
+     * @return array<string, array{\CakePasskeys\Service\WebAuthnException, bool}>
+     */
+    public static function loginFailuresWithoutCode(): array
+    {
+        return [
+            'deactivated account' => [new WebAuthnException('Unknown passkey credential.'), true],
+            'bad signature' => [new WebAuthnException('Passkey verification failed.'), true],
+            'signals off' => [new UnknownCredentialException('Unknown passkey credential.'), false],
+        ];
     }
 
     /**

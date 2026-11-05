@@ -11,8 +11,12 @@ export class PasskeyAbortedError extends PasskeyError {}
 export class PasskeyInvalidStateError extends PasskeyError {}
 
 export class PasskeyServerError extends PasskeyError {
-    constructor(message: string, public status: number) {
+    /** Machine-readable `error` from a JSON error body, e.g. `unknown_credential`. */
+    public code?: string;
+
+    constructor(message: string, public status: number, code?: string) {
         super(message);
+        if (code !== undefined) this.code = code;
     }
 }
 

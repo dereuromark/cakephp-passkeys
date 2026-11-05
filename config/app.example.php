@@ -158,5 +158,10 @@ return [
             // shown in the alert. A string URL or a routing array.
             'manageUrl' => null,
         ],
+        // Use the WebAuthn Signal API (Chrome 132+) to keep the browser's and
+        // password manager's passkey list in sync: drop passkeys the server
+        // no longer knows and update the account name. Browsers without it
+        // are unaffected.
+        'signals' => true,
     ],
 ];

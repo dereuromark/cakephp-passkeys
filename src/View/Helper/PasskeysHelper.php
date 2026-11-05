@@ -8,6 +8,7 @@ use Cake\Core\Configure;
 use Cake\Routing\Router;
 use Cake\View\Helper;
 use CakePasskeys\CakePasskeysPlugin;
+use CakePasskeys\Service\Signals;
 use function Cake\Core\h;
 
 /**
@@ -111,6 +112,9 @@ class PasskeysHelper extends Helper
                 'action' => $action,
                 static::ID_PLACEHOLDER,
             ]);
+        }
+        if (!Signals::enabled()) {
+            $config['signals'] = false;
         }
         $csrfToken = $this->_View->getRequest()->getAttribute('csrfToken');
         if (is_string($csrfToken) && $csrfToken !== '') {

@@ -121,6 +121,21 @@ class PasskeysHelperTest extends TestCase
     /**
      * @return void
      */
+    public function testEndpointsMetaTurnsSignalsOffWhenConfigured(): void
+    {
+        Configure::write('CakePasskeys.signals', true);
+        $this->assertStringNotContainsString('signals', $this->helper->endpointsMeta());
+
+        Configure::write('CakePasskeys.signals', false);
+        $html = $this->helper->endpointsMeta();
+        $this->assertSame(1, preg_match('/content="([^"]*)"/', $html, $match));
+        $config = json_decode(html_entity_decode($match[1] ?? ''), true);
+        $this->assertFalse($config['signals']);
+    }
+
+    /**
+     * @return void
+     */
     public function testJsVersionMatchesPluginConstant(): void
     {
         $this->assertSame(CakePasskeysPlugin::JS_VERSION, $this->helper->jsVersion());

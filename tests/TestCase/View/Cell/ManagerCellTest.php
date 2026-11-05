@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace CakePasskeys\Test\TestCase\View\Cell;
 
 use Cake\Core\Configure;
+use Cake\Database\Connection;
+use Cake\Datasource\ConnectionManager;
 use Cake\Http\ServerRequest;
 use Cake\Routing\Router;
 use Cake\TestSuite\TestCase;
 use Cake\View\View;
 use CakePasskeys\CakePasskeysPlugin;
+use CakePasskeys\Service\Signals;
+use CakePasskeys\Service\UserResolver;
 use Migrations\Migrations;
 
 class ManagerCellTest extends TestCase
@@ -23,6 +27,15 @@ class ManagerCellTest extends TestCase
         Configure::write('CakePasskeys.enabled', true);
         Configure::write('CakePasskeys.maxPerUser', 5);
         Configure::write('CakePasskeys.docsUrl', null);
+        Configure::write('CakePasskeys.rpId', 'localhost');
+        Configure::write('CakePasskeys.signals', true);
+        Configure::write('CakePasskeys.users.columns', ['id' => 'id', 'email' => 'email', 'displayName' => 'name']);
+
+        $conn = ConnectionManager::get('test');
+        assert($conn instanceof Connection);
+        $conn->execute('DROP TABLE IF EXISTS users');
+        $conn->execute('CREATE TABLE users (id INTEGER PRIMARY KEY, email VARCHAR(255), name VARCHAR(255))');
+        $conn->insert('users', ['id' => 1, 'email' => 'alice@example.com', 'name' => 'Alice']);
 
         $migrations = new Migrations(['connection' => 'test', 'plugin' => 'CakePasskeys']);
         $migrations->rollback(['target' => 0]);
@@ -114,6 +127,47 @@ class ManagerCellTest extends TestCase
         $html = $this->renderCell(userId: 1);
         $this->assertStringNotContainsString('data-passkey-register', $html);
         $this->assertStringContainsString('reached', $html);
+    }
+
+    /**
+     * The manager hands the browser the signed-in user's own credentials and
+     * account names, for the Signal API.
+     *
+     * @return void
+     */
+    public function testSignalDataForSignedInUser(): void
+    {
+        $id = $this->seedPasskey(1, ['name' => 'Mine']);
+        $this->seedPasskey(2, ['name' => 'Not mine']);
+        $credential = (string)$this->getTableLocator()->get('CakePasskeys.Passkeys')->get($id)->get('credential_id');
+        $user = (new UserResolver())->byId(1);
+        $this->assertNotNull($user);
+
+        $html = $this->renderCell(userId: 1);
+
+        $this->assertSame(1, preg_match('/data-passkey-signals="([^"]*)"/', $html, $match));
+        $data = json_decode(html_entity_decode($match[1] ?? ''), true);
+        $this->assertSame([
+            'rpId' => 'localhost',
+            'userHandle' => Signals::base64Url($user->getPasskeyUserHandle()),
+            'acceptedCredentialIds' => [Signals::base64Url($credential)],
+            'name' => 'alice@example.com',
+            'displayName' => 'Alice',
+        ], $data);
+    }
+
+    /**
+     * @return void
+     */
+    public function testNoSignalDataWhenSignalsAreOff(): void
+    {
+        Configure::write('CakePasskeys.signals', false);
+        $this->seedPasskey(1, ['name' => 'Mine']);
+
+        $html = $this->renderCell(userId: 1);
+
+        $this->assertStringContainsString('Mine', $html);
+        $this->assertStringNotContainsString('data-passkey-signals', $html);
     }
 
     /**

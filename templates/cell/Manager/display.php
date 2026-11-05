@@ -11,12 +11,13 @@ use function Cake\I18n\__d;
  * @var int $maxPerUser
  * @var string|null $docsUrl
  * @var string $title
+ * @var array<string, mixed>|null $signals
  */
 if ($hidden) {
     return;
 }
 ?>
-<div class="passkeys-manager">
+<div class="passkeys-manager"<?php if ($signals) { ?> data-passkey-signals="<?= h((string)json_encode($signals, JSON_UNESCAPED_SLASHES)) ?>"<?php } ?>>
     <?php if (empty($passkeys)) { ?>
         <p class="passkeys-empty"><?= __d('passkeys', "You haven't added any passkeys yet.") ?></p>
         <p class="passkeys-explainer">

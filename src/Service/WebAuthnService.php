@@ -318,6 +318,7 @@ class WebAuthnService
      * @param array<string, mixed> $clientResponse
      *
      * @throws \CakePasskeys\Service\WebAuthnException
+     * @throws \CakePasskeys\Service\UnknownCredentialException
      *
      * @return \CakePasskeys\Model\Entity\Passkey
      */
@@ -343,7 +344,7 @@ class WebAuthnService
             ->where(['Passkeys.credential_id' => $publicKeyCredential->rawId])
             ->first();
         if (!$passkey instanceof Passkey) {
-            throw new WebAuthnException('Unknown passkey credential.');
+            throw new UnknownCredentialException('Unknown passkey credential.');
         }
 
         // The credential names its owner. That account must still exist and

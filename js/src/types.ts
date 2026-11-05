@@ -11,6 +11,24 @@ export interface Endpoints {
     delete?: string;
     /** CSRF token of the application, sent with every request. */
     csrfToken?: string;
+    /** `false` turns the WebAuthn Signal API calls off. */
+    signals?: boolean;
+}
+
+/** Signal API data the server sends; ids are base64url. */
+export interface SignalData {
+    rpId: string;
+    userHandle: string;
+    acceptedCredentialIds: string[];
+}
+
+export interface UserSignalData extends SignalData {
+    name: string;
+    displayName?: string;
+}
+
+export interface DeleteResult extends Partial<SignalData> {
+    deleted: boolean;
 }
 
 export interface PasskeyResult {

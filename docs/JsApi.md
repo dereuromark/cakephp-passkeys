@@ -160,6 +160,39 @@ try {
 }
 ```
 
+A sign-in with a passkey the server does not store fails with a
+`PasskeyServerError` whose `code` is `'unknown_credential'`.
+
+## Signal API
+
+Where the browser supports the WebAuthn Signal API (Chrome 132+),
+the helpers keep the authenticator's passkey list in step with the
+server. Each call is feature-detected and swallows its own errors.
+
+- `authenticate()` and `conditional()` call
+  `PublicKeyCredential.signalUnknownCredential()` when the server
+  answers `unknown_credential`, then reject as usual.
+- `remove()` calls `signalAllAcceptedCredentials()` with the
+  `rpId`, `userHandle` and `acceptedCredentialIds` of the delete
+  response, and returns that response.
+- The binder reads `data-passkey-signals` (rendered by the Manager
+  cell) and calls `signalAllAcceptedCredentials()` and
+  `signalCurrentUserDetails()` on page load.
+
+With `CakePasskeys.signals` set to `false`, the server sends no signal
+data and `endpointsMeta()` adds `"signals": false`, which the helpers
+honor too. The helpers are exported for custom UIs:
+
+```js
+import { signalAcceptedCredentials, signalCurrentUser, signalUnknownCredential } from '@dereuromark/cakephp-passkeys';
+
+await signalAcceptedCredentials({ rpId, userHandle, acceptedCredentialIds });
+await signalCurrentUser({ rpId, userHandle, acceptedCredentialIds, name, displayName });
+await signalUnknownCredential(rpId, credentialId);
+```
+
+All ids are base64url, as in the registration options.
+
 ## iOS / Safari note
 
 iOS 17+ propagates user-activation across intermediate awaits, so
