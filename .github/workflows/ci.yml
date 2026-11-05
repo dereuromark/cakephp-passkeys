@@ -8,6 +8,12 @@ jobs:
             matrix:
                 php: ['8.2', '8.5']
                 db: [sqlite, mysql, pgsql]
+                deps: [highest]
+                include:
+                    # Proves the floors in composer.json actually install and pass.
+                    - php: '8.2'
+                      db: sqlite
+                      deps: lowest
         services:
             postgres:
                 image: postgres
@@ -32,17 +38,20 @@ jobs:
               uses: actions/cache@v5
               with:
                   path: ~/.composer/cache
-                  key: composer-${{ matrix.php }}-${{ hashFiles('composer.json') }}
-            - run: composer install --no-progress --no-interaction
+                  key: composer-${{ matrix.php }}-${{ matrix.deps }}-${{ hashFiles('composer.json') }}
+            - if: matrix.deps == 'highest'
+              run: composer install --no-progress --no-interaction
+            - if: matrix.deps == 'lowest'
+              run: composer update --prefer-lowest --prefer-stable --no-progress --no-interaction
             - name: Run PHPUnit
               run: |
                   if [[ ${{ matrix.db }} == 'sqlite' ]]; then export DB_URL='sqlite:///:memory:'; fi
                   if [[ ${{ matrix.db }} == 'mysql' ]]; then export DB_URL='mysql://root:root@127.0.0.1/cakephp'; fi
                   if [[ ${{ matrix.db }} == 'pgsql' ]]; then export DB_URL='postgres://postgres:postgres@127.0.0.1/postgres'; fi
                   vendor/bin/phpunit
-            - if: matrix.db == 'sqlite'
+            - if: matrix.db == 'sqlite' && matrix.deps == 'highest'
               run: vendor/bin/phpstan analyse
-            - if: matrix.db == 'sqlite'
+            - if: matrix.db == 'sqlite' && matrix.deps == 'highest'
               run: vendor/bin/phpcs
     i18n:
         name: Translation Catalog
