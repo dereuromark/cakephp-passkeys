@@ -8,7 +8,8 @@ on:
 jobs:
     playwright:
         if: github.event_name == 'push' || contains(github.event.pull_request.labels.*.name, 'e2e')
-        runs-on: ubuntu-latest
+        # Playwright cannot install browsers on ubuntu-latest (26.04) yet.
+        runs-on: ubuntu-24.04
         steps:
             - uses: actions/checkout@v4
             - uses: shivammathur/setup-php@v2

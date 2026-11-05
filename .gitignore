@@ -4,6 +4,7 @@
 /js/node_modules/
 /dist/
 /js/dist/
+/webroot/dist/
 /.phpunit.cache/
 /.phpunit.result.cache
 .phpcs-cache
