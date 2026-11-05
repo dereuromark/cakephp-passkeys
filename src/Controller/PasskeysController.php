@@ -16,10 +16,12 @@ use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Exception\TooManyRequestsException;
 use Cake\Http\Exception\UnauthorizedException;
 use Cake\Http\Response;
+use Cake\Log\Log;
 use Cake\Routing\Router;
 use CakePasskeys\Contract\PasskeyUserInterface;
 use CakePasskeys\Contract\RateLimiterInterface;
 use CakePasskeys\Event\PasskeyEvent;
+use CakePasskeys\Mailer\PasskeyMailer;
 use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
 use CakePasskeys\Service\CacheRateLimiter;
@@ -31,6 +33,7 @@ use CakePasskeys\Service\UserResolver;
 use CakePasskeys\Service\WebAuthnException;
 use CakePasskeys\Service\WebAuthnService;
 use DateTimeImmutable;
+use Throwable;
 use function Cake\I18n\__d;
 
 /**
@@ -163,6 +166,7 @@ class PasskeysController extends Controller
             throw new BadRequestException($e->getMessage());
         }
         $this->fire('afterRegister', $passkey, $user->getPasskeyUserHandle());
+        $this->notifyRegistered($user, $passkey);
 
         return $this->json(['passkey' => $this->serializePasskey($passkey)]);
     }
@@ -567,6 +571,41 @@ class PasskeysController extends Controller
         EventManager::instance()->dispatch($event);
 
         return $event;
+    }
+
+    /**
+     * Sends the `notify.onRegister` alert. The passkey is already stored, so
+     * a mail failure is logged and never fails the registration.
+     *
+     * @param \CakePasskeys\Contract\PasskeyUserInterface $user
+     * @param \CakePasskeys\Model\Entity\Passkey $passkey
+     *
+     * @return void
+     */
+    private function notifyRegistered(PasskeyUserInterface $user, Passkey $passkey): void
+    {
+        if (!Configure::read('CakePasskeys.notify.onRegister') || $user->getPasskeyDisplayEmail() === '') {
+            return;
+        }
+        try {
+            $this->mailer()->send('registered', [$user, $passkey]);
+        } catch (Throwable $e) {
+            Log::warning(sprintf(
+                'CakePasskeys: could not send the passkey alert for user %s: %s',
+                (string)$user->getUserId(),
+                $e->getMessage(),
+            ));
+        }
+    }
+
+    /**
+     * Protected so a host or test can swap the mailer.
+     *
+     * @return \CakePasskeys\Mailer\PasskeyMailer
+     */
+    protected function mailer(): PasskeyMailer
+    {
+        return new PasskeyMailer((string)Configure::read('CakePasskeys.notify.emailProfile', 'default'));
     }
 
     /**

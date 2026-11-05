@@ -129,3 +129,32 @@ msgid "Deleted passkey {0} ({1})."
 msgstr "Deleted passkey {0} ({1})."
 msgid "This type of passkey is not allowed here."
 msgstr "This type of passkey is not allowed here."
+msgid "{0}: a passkey was added to your account"
+msgstr "{0}: a passkey was added to your account"
+
+msgid "Hi {0},"
+msgstr "Hi {0},"
+
+msgid "A passkey was added to your {0} account."
+msgstr "A passkey was added to your {0} account."
+
+msgid "Name: {0}"
+msgstr "Name: {0}"
+
+msgid "Device: {0}"
+msgstr "Device: {0}"
+
+msgid "Added: {0}"
+msgstr "Added: {0}"
+
+msgid "If this was you, there is nothing to do."
+msgstr "If this was you, there is nothing to do."
+
+msgid "If it was not you, someone else may be signed in to your account. Sign in, remove this passkey and secure your account."
+msgstr "If it was not you, someone else may be signed in to your account. Sign in, remove this passkey and secure your account."
+
+msgid "Manage your passkeys"
+msgstr "Manage your passkeys"
+
+msgid "Manage your passkeys: {0}"
+msgstr "Manage your passkeys: {0}"

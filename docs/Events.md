@@ -63,7 +63,7 @@ with the event names in its `implementedEvents()`.
 
 ## What the plugin leaves to you
 
-- It writes no audit record. Do that in a listener.
+- It writes no audit record. Do that in a listener. For a mail to the user when a passkey is added, enable `notify.onRegister` instead of writing a listener (see the README).
 - With `cakephp/authentication` it persists the user as identity after a sign-in; without it, it only writes the user id to the configured session key. Anything else a login does in your app (timestamps, flags) belongs in an `afterLogin` listener.
 - It does not decide who may register or delete a passkey beyond being signed in. Stop `beforeRegister` or `beforeDelete` for anything stricter, such as a recent sign-in.
 - `getUserHandle()` returns the opaque handle the authenticator knows the user by, the same value for all four `after*` events. The database id is `getPasskey()->user_id`.

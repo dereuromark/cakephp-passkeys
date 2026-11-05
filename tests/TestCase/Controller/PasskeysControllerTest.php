@@ -14,8 +14,11 @@ use Cake\Event\Event;
 use Cake\Event\EventInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Exception\BadRequestException;
+use Cake\Http\Response;
 use Cake\Http\ServerRequest;
 use Cake\Http\Session;
+use Cake\Log\Log;
+use Cake\TestSuite\EmailTrait;
 use Cake\TestSuite\IntegrationTestTrait;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\Contract\RateLimiterInterface;
@@ -28,6 +31,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 
 class PasskeysControllerTest extends TestCase
 {
+    use EmailTrait;
     use IntegrationTestTrait;
 
     /**
@@ -58,6 +62,7 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.session.persistIdentity', true);
         Configure::write('CakePasskeys.rateLimiter', null);
         Configure::write('CakePasskeys.wellKnown', ['enroll' => null, 'manage' => null]);
+        Configure::write('CakePasskeys.notify', ['onRegister' => false, 'emailProfile' => 'default', 'manageUrl' => null]);
         Configure::write('CakePasskeys.ceremony', [
             'userVerification' => 'required',
             'residentKey' => 'preferred',
@@ -1103,6 +1108,84 @@ class PasskeysControllerTest extends TestCase
         $request = new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]);
 
         $this->controllerWith($request, $service)->registerStart();
+    }
+
+    /**
+     * @return void
+     */
+    public function testRegisterFinishSendsNoAlertByDefault(): void
+    {
+        $this->registerFinishWithStub();
+
+        $this->assertNoMailSent();
+    }
+
+    /**
+     * @return void
+     */
+    public function testRegisterFinishMailsAlertWhenEnabled(): void
+    {
+        Configure::write('CakePasskeys.notify.onRegister', true);
+
+        $response = $this->registerFinishWithStub();
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertMailCount(1);
+        $this->assertMailSentTo('alice@example.com');
+        $this->assertMailContainsText('Name: Work laptop');
+        $this->assertMailContainsText('Device: YubiKey 5');
+    }
+
+    /**
+     * The passkey is stored before the mail goes out, so a broken mailer
+     * must not turn the registration into an error.
+     *
+     * @return void
+     */
+    public function testRegisterFinishSucceedsWhenAlertMailFails(): void
+    {
+        Configure::write('CakePasskeys.notify.onRegister', true);
+        Configure::write('CakePasskeys.notify.emailProfile', 'no-such-profile');
+        Log::drop('passkeys_test_memory');
+        Log::setConfig('passkeys_test_memory', ['className' => 'Array', 'levels' => ['warning']]);
+
+        try {
+            $response = $this->registerFinishWithStub();
+            /** @var \Cake\Log\Engine\ArrayLog $log */
+            $log = Log::engine('passkeys_test_memory');
+            $logged = $log->read();
+        } finally {
+            Log::drop('passkeys_test_memory');
+        }
+
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertNoMailSent();
+        $this->assertCount(1, $logged);
+        $this->assertStringContainsString('could not send the passkey alert', $logged[0]);
+    }
+
+    /**
+     * Runs registerFinish() for user 1 against a stub service that returns
+     * a stored passkey.
+     *
+     * @return \Cake\Http\Response
+     */
+    private function registerFinishWithStub(): Response
+    {
+        Configure::write('CakePasskeys.rateLimiter', false);
+        $passkeyId = $this->seedPasskey(1, 'Work laptop');
+        $table = $this->getTableLocator()->get('CakePasskeys.Passkeys');
+        /** @var \CakePasskeys\Model\Entity\Passkey $passkey */
+        $passkey = $table->get($passkeyId);
+        $passkey->aaguid_label = 'YubiKey 5';
+
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishRegistration')->willReturn($passkey);
+        $request = (new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]))
+            ->withAttribute('identity', ['id' => 1])
+            ->withParsedBody(['response' => [], 'challengeKey' => 'x', 'name' => 'Work laptop']);
+
+        return $this->controllerWith($request, $service)->registerFinish();
     }
 
     /**

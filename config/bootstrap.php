@@ -33,5 +33,6 @@ return [
         'docsUrl' => null,
         'nudge' => ['enabled' => true, 'redisplayAfterDays' => 14],
         'wellKnown' => ['enroll' => null, 'manage' => null],
+        'notify' => ['onRegister' => false, 'emailProfile' => 'default', 'manageUrl' => null],
     ],
 ];

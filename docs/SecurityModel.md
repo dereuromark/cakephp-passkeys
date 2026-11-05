@@ -82,6 +82,10 @@ What it does not do: prove the make. The AAGUID is a value the authenticator wri
 
 The plugin does not verify attestation statements. It registers only the `none` attestation format with `web-auth/webauthn-lib` and checks no certificates against trust anchors. Setting `ceremony.attestation` to `direct` does not change that: a response that carries a statement in another format (`packed`, `tpm`, `apple`, ...) is refused, so registrations fail. If you need guarantees about the hardware, you have to verify attestation yourself: request `direct` attestation, add the attestation statement formats to the library and check the statements against the FIDO Metadata Service or your vendor's roots. That is outside this plugin.
 
+### Tell users about new passkeys
+
+Anyone holding a signed-in session can add a passkey and keep access after the session ends. Asking for a recent sign-in in `beforeRegister` makes that harder; `notify.onRegister` mails the owner after every registration, so it does not go unnoticed. The mail is best effort: a failure is logged and does not undo the registration.
+
 ### Say who the current user is
 
 The endpoints for registering, renaming, deleting and re-confirming trust the user id they are given. See "Who is signed in" in the README. If you set `identityResolver`, it must return the id of the authenticated user of this request and nothing a client can choose.

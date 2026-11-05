@@ -146,5 +146,17 @@ return [
             'enroll' => null,
             'manage' => null,
         ],
+
+        'notify' => [
+            // Mail the user when a passkey is added to their account, so a
+            // passkey added from a stolen session does not go unnoticed.
+            // Sent with CakePasskeys\Mailer\PasskeyMailer.
+            'onRegister' => false,
+            // Mailer profile (Email config) the alert is sent with.
+            'emailProfile' => 'default',
+            // Optional link to the page where users manage their passkeys,
+            // shown in the alert. A string URL or a routing array.
+            'manageUrl' => null,
+        ],
     ],
 ];
