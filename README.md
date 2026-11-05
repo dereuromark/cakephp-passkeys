@@ -65,7 +65,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `session.userIdKey` | `'Auth.id'` | Session key the user id is written to after a passkey sign-in. |
 | `ceremony.userVerification` | `'required'` | `required`, `preferred` or `discouraged`. Only `required` sets the MFA flag. |
 | `ceremony.residentKey` | `'preferred'` | Whether the authenticator stores the account, which sign-in without an email needs. |
-| `ceremony.attestation` | `'none'` | Attestation conveyance passed to the browser. |
+| `ceremony.attestation` | `'none'` | Attestation conveyance passed to the browser. Leave it at `none`: the plugin only accepts the `none` attestation format, so other values make registrations fail on authenticators that send a statement. See [docs/SecurityModel.md](docs/SecurityModel.md#authenticator-allowlist). |
 | `ceremony.timeout` | `60000` | Milliseconds the browser waits for the authenticator. |
 | `mfa.sessionFlag` | `'CakePasskeys.mfa_satisfied'` | Session key set to `true` after a user-verified sign-in. |
 | `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |

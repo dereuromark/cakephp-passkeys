@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-05
+
 ### Added
 
 - `GET /.well-known/passkey-endpoints` tells password managers where users add and manage passkeys. Off until `wellKnown.enroll` or `wellKnown.manage` is set.
@@ -20,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - `reauth/finish`, `rename` and `delete` are rate-limited too (`passkeys.reauth_finish.<user>` 20 per minute, `passkeys.manage.<user>` 30 per minute for rename and delete together).
 - A full bucket throws `TooManyRequestsException` (still HTTP 429) instead of a plain `HttpException`, now that CakePHP 5.3 is the minimum.
+- A sign-in is refused when the authenticator's backup-eligible flag differs from the one stored at registration, as WebAuthn Level 3 requires.
 
 ## [0.1.1] - 2026-11-05
 
