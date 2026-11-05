@@ -1,6 +1,6 @@
 # Events
 
-The plugin dispatches four events on the global event manager.
+The plugin dispatches six events on the global event manager: four `after*` events and the two guards `beforeRegister` and `beforeDelete`.
 
 ## Events
 
@@ -66,4 +66,4 @@ with the event names in its `implementedEvents()`.
 - It writes no audit record. Do that in a listener.
 - With `cakephp/authentication` it persists the user as identity after a sign-in; without it, it only writes the user id to the configured session key. Anything else a login does in your app (timestamps, flags) belongs in an `afterLogin` listener.
 - It does not decide who may register or delete a passkey beyond being signed in. Stop `beforeRegister` or `beforeDelete` for anything stricter, such as a recent sign-in.
-- `getUserHandle()` returns the opaque handle the authenticator knows the user by, the same value for all four events. The database id is `getPasskey()->user_id`.
+- `getUserHandle()` returns the opaque handle the authenticator knows the user by, the same value for all four `after*` events. The database id is `getPasskey()->user_id`.
