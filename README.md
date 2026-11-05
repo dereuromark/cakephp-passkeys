@@ -64,7 +64,7 @@ At minimum, set the relying party id. It is the domain your users see, without s
 | `afterLoginRedirect` | `'/'` | URL the JavaScript navigates to after a sign-in. |
 | `maxPerUser` | `5` | Passkeys per user. `0` for no limit. |
 | `login.emailHint` | `false` | Accept an email on `login/start`. See [Security](#security). |
-| `rateLimiter` | `null` | Class or instance implementing `RateLimiterInterface`. |
+| `rateLimiter` | `null` | Class or instance implementing `RateLimiterInterface`. `null` uses the built-in cache-backed limiter, `false` turns limiting off. |
 | `urlPrefix` | `'/passkeys'` | Where the endpoints are mounted. |
 
 ## Usage
@@ -230,7 +230,7 @@ Adapters for React, Vue, Alpine and Stimulus are documented in [docs/JsApi.md](d
 - **CSRF.** Leave your CSRF protection on for the plugin's routes. `endpointsMeta()` hands the token to the JavaScript, which sends it with every request. `rename` and `delete` carry no WebAuthn challenge, so exempting them would open them to forged requests.
 - **Origin.** Set `allowedOrigins`. See the table above for what is accepted without it.
 - **Deactivated users.** A sign-in is refused when the user row is gone or `users.activeColumn` is false, even though the passkey itself is still valid.
-- **Rate limiting.** None by default. `login/start` is open to anonymous callers, so bind a `RateLimiterInterface` in production.
+- **Rate limiting.** On by default: a fixed window per IP or user, counted in the `cache` engine. A full bucket answers 429. Counting is atomic only on engines with `increment()` support (Redis, Memcached, APCu). Bind your own `RateLimiterInterface` to use your app's limiter instead.
 - **Email hint.** With `login.emailHint` enabled, `login/start` returns the credential ids of the account behind an email address. That tells anyone whether the address has passkeys. Leave it off unless you need sign-in with security keys that hold no account information.
 - **User verification.** `ceremony.userVerification` defaults to `required`, so a sign-in proves a PIN or biometric check. The session flag `CakePasskeys.mfa_satisfied` is only set in that case, and removed on a sign-in without it. Clear it in your logout too; the plugin does not see the logout.
 - **Replay.** A login challenge is consumed with `Cache::add()`, which is only atomic on Redis, Memcached and APCu. With the File engine two finishes racing on the same challenge can both pass the cache check (the session-bound challenge list and the signature counter still apply). Point `cache` at an atomic engine in production.

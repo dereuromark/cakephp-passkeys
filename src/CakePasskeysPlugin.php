@@ -7,15 +7,12 @@ namespace CakePasskeys;
 use Cake\Cache\Cache;
 use Cake\Core\BasePlugin;
 use Cake\Core\Configure;
-use Cake\Core\ContainerInterface;
 use Cake\Core\PluginApplicationInterface;
 use Cake\I18n\ChainMessagesLoader;
 use Cake\I18n\I18n;
 use Cake\I18n\MessagesFileLoader;
 use Cake\I18n\Package;
 use Cake\Routing\RouteBuilder;
-use CakePasskeys\Contract\RateLimiterInterface;
-use CakePasskeys\Service\NullRateLimiter;
 
 class CakePasskeysPlugin extends BasePlugin
 {
@@ -64,6 +61,15 @@ class CakePasskeysPlugin extends BasePlugin
                 ['duration' => (int)Configure::read('CakePasskeys.challengeTtl', 300)],
             ));
         }
+        // Rate-limit buckets must outlive their window (at most a minute), or
+        // a short base duration would reset a full bucket early.
+        if (!Cache::getConfig('passkeys_rate_limit')) {
+            $baseEngine = (string)Configure::read('CakePasskeys.cache', 'default');
+            Cache::setConfig('passkeys_rate_limit', array_merge(
+                Cache::getConfig($baseEngine) ?? [],
+                ['duration' => '+1 hour'],
+            ));
+        }
     }
 
     /**
@@ -83,14 +89,5 @@ class CakePasskeysPlugin extends BasePlugin
             $r->connect('/rename/{id}', ['controller' => 'Passkeys', 'action' => 'rename'])->setPass(['id']);
             $r->connect('/delete/{id}', ['controller' => 'Passkeys', 'action' => 'delete'])->setPass(['id']);
         });
-    }
-
-    /**
-     * @inheritDoc
-     */
-    public function services(ContainerInterface $container): void
-    {
-        $impl = Configure::read('CakePasskeys.rateLimiter');
-        $container->add(RateLimiterInterface::class, $impl ?: NullRateLimiter::class);
     }
 }

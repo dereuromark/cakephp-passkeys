@@ -110,8 +110,9 @@ return [
         ],
 
         // Class name or instance implementing
-        // CakePasskeys\Contract\RateLimiterInterface. With null, nothing is
-        // limited.
+        // CakePasskeys\Contract\RateLimiterInterface. With null, the built-in
+        // CacheRateLimiter counts in the `cache` engine; false turns limiting
+        // off.
         'rateLimiter' => null,
 
         // Path the endpoints are mounted under.

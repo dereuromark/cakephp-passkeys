@@ -6,12 +6,12 @@ namespace CakePasskeys\Controller;
 
 use Cake\Controller\Controller;
 use Cake\Core\Configure;
-use Cake\Core\ContainerInterface;
 use Cake\Event\Event;
 use Cake\Event\EventInterface;
 use Cake\Event\EventManager;
 use Cake\Http\Exception\BadRequestException;
 use Cake\Http\Exception\ForbiddenException;
+use Cake\Http\Exception\HttpException;
 use Cake\Http\Exception\NotFoundException;
 use Cake\Http\Exception\UnauthorizedException;
 use Cake\Http\Response;
@@ -20,6 +20,7 @@ use CakePasskeys\Contract\RateLimiterInterface;
 use CakePasskeys\Event\PasskeyEvent;
 use CakePasskeys\Model\Entity\Passkey;
 use CakePasskeys\Service\AaguidLabelResolver;
+use CakePasskeys\Service\CacheRateLimiter;
 use CakePasskeys\Service\ChallengeStore;
 use CakePasskeys\Service\ConventionUserAdapter;
 use CakePasskeys\Service\IdentityResolver;
@@ -28,7 +29,6 @@ use CakePasskeys\Service\UserResolver;
 use CakePasskeys\Service\WebAuthnException;
 use CakePasskeys\Service\WebAuthnService;
 use DateTimeImmutable;
-use Throwable;
 use function Cake\I18n\__d;
 
 /**
@@ -147,6 +147,7 @@ class PasskeysController extends Controller
         $this->getRequest()->allowMethod(['post']);
         $user = $this->resolveCurrentUser();
         $this->guardRegistration($user);
+        $this->throttle('passkeys.register_finish.' . $user->getUserId(), 10, 60);
         $body = (array)$this->getRequest()->getParsedBody();
         try {
             $passkey = $this->webauthn()->finishRegistration(
@@ -183,6 +184,7 @@ class PasskeysController extends Controller
     public function loginFinish(): Response
     {
         $this->getRequest()->allowMethod(['post']);
+        $this->throttle('passkeys.login_finish.' . $this->getRequest()->clientIp(), 20, 60);
         $body = (array)$this->getRequest()->getParsedBody();
         if (!$this->forgetLoginChallenge((string)($body['challengeKey'] ?? ''))) {
             // The challenge was started in another browser session. Finishing
@@ -450,7 +452,7 @@ class PasskeysController extends Controller
      * @param int $max Max attempts in the window.
      * @param int $decay Window length in seconds.
      *
-     * @throws \Cake\Http\Exception\BadRequestException
+     * @throws \Cake\Http\Exception\HttpException 429 when the bucket is full.
      *
      * @return void
      */
@@ -458,45 +460,34 @@ class PasskeysController extends Controller
     {
         $limiter = $this->resolveRateLimiter();
         if (!$limiter->hit($key, $max, $decay)) {
-            throw new BadRequestException(__d('passkeys', 'Too many attempts. Try again later.'));
+            throw new HttpException(__d('passkeys', 'Too many attempts. Try again later.'), 429);
         }
     }
 
     /**
-     * Locate the rate limiter the application wired, through the container
-     * (see {@see \CakePasskeys\CakePasskeysPlugin::services()}) or the
-     * `CakePasskeys.rateLimiter` Configure key. Falls back to the no-op one.
+     * The limiter from `CakePasskeys.rateLimiter`: a class name or instance
+     * implementing RateLimiterInterface, null for the cache-backed default,
+     * false to turn limiting off.
      *
      * @return \CakePasskeys\Contract\RateLimiterInterface
      */
     private function resolveRateLimiter(): RateLimiterInterface
     {
-        try {
-            $container = $this->getRequest()->getAttribute('container');
-            if (
-                $container instanceof ContainerInterface
-                && $container->has(RateLimiterInterface::class)
-            ) {
-                $instance = $container->get(RateLimiterInterface::class);
-                if ($instance instanceof RateLimiterInterface) {
-                    return $instance;
-                }
-            }
-        } catch (Throwable) {
-            // fall through to Configure lookup
-        }
         $impl = Configure::read('CakePasskeys.rateLimiter');
+        if ($impl === false) {
+            return new NullRateLimiter();
+        }
+        if ($impl instanceof RateLimiterInterface) {
+            return $impl;
+        }
         if (is_string($impl) && class_exists($impl)) {
             $instance = new $impl();
             if ($instance instanceof RateLimiterInterface) {
                 return $instance;
             }
         }
-        if ($impl instanceof RateLimiterInterface) {
-            return $impl;
-        }
 
-        return new NullRateLimiter();
+        return new CacheRateLimiter();
     }
 
     /**
