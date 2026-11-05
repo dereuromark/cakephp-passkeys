@@ -776,8 +776,15 @@ class WebAuthnService
     private function assertAllowedAaguid(string $aaguid): void
     {
         $allowed = Configure::read('CakePasskeys.allowedAaguids');
-        if (!is_array($allowed) || !$allowed) {
+        if ($allowed === null || $allowed === []) {
             return;
+        }
+        if (is_string($allowed)) {
+            $allowed = [$allowed];
+        }
+        if (!is_array($allowed)) {
+            // Fail closed: a broken policy must not let every authenticator in.
+            throw new WebAuthnException('CakePasskeys.allowedAaguids must be null or a list of AAGUID strings.');
         }
         $allowed = array_map(static fn (mixed $value): string => strtolower(trim((string)$value)), $allowed);
         $aaguid = strtolower($aaguid);

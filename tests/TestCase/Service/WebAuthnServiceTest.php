@@ -384,6 +384,28 @@ class WebAuthnServiceTest extends TestCase
     /**
      * @return void
      */
+    public function testAllowlistGivenAsStringIsOneEntry(): void
+    {
+        Configure::write('CakePasskeys.allowedAaguids', self::YUBIKEY_5);
+
+        $this->expectException(WebAuthnException::class);
+        $this->register($this->makeUser(1), new SoftAuthenticator(aaguid: 'adce0002-35bc-c60a-648b-0b25f1f05503'));
+    }
+
+    /**
+     * @return void
+     */
+    public function testInvalidAllowlistFailsClosed(): void
+    {
+        Configure::write('CakePasskeys.allowedAaguids', true);
+
+        $this->expectException(WebAuthnException::class);
+        $this->register($this->makeUser(1), new SoftAuthenticator(aaguid: self::YUBIKEY_5));
+    }
+
+    /**
+     * @return void
+     */
     public function testEmptyAllowlistAcceptsAnyAuthenticator(): void
     {
         Configure::write('CakePasskeys.allowedAaguids', []);
