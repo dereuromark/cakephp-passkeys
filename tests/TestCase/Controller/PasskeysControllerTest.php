@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CakePasskeys\Test\TestCase\Controller;
 
+use Authentication\AuthenticationService;
 use Cake\Cache\Cache;
 use Cake\Core\Configure;
 use Cake\Database\Connection;
@@ -502,7 +503,7 @@ class PasskeysControllerTest extends TestCase
             }
         };
 
-        $service = $this->createMock(WebAuthnService::class);
+        $service = $this->createStub(WebAuthnService::class);
         $service->method('finishLogin')->willReturn($passkey);
 
         $request = (new ServerRequest([
@@ -605,7 +606,7 @@ class PasskeysControllerTest extends TestCase
             }
         };
 
-        $service = $this->createMock(WebAuthnService::class);
+        $service = $this->createStub(WebAuthnService::class);
         $service->method('finishLogin')->willReturn($passkey);
 
         $request = (new ServerRequest([
@@ -694,7 +695,7 @@ class PasskeysControllerTest extends TestCase
 
     public function testLoginStartRemembersChallengeInSession(): void
     {
-        $service = $this->createMock(WebAuthnService::class);
+        $service = $this->createStub(WebAuthnService::class);
         $service->method('startLogin')->willReturn(['challenge' => 'x', 'challengeKey' => 'k1']);
         $request = new ServerRequest(['environment' => ['REQUEST_METHOD' => 'POST']]);
 
@@ -714,7 +715,7 @@ class PasskeysControllerTest extends TestCase
         Configure::write('CakePasskeys.ceremony.userVerification', 'preferred');
         $passkeyId = $this->seedPasskey(1, 'Stub');
         $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
-        $service = $this->createMock(WebAuthnService::class);
+        $service = $this->createStub(WebAuthnService::class);
         $service->method('finishLogin')->willReturn($passkey);
 
         $request = (new ServerRequest([
@@ -788,6 +789,76 @@ class PasskeysControllerTest extends TestCase
         $this->controllerWith($request, $service)->loginFinish();
 
         $this->assertSame('alice@example.com', $session->read('Auth')->get('email'));
+    }
+
+    /**
+     * Against the real cakephp/authentication service and Session
+     * authenticator: a passkey sign-in on top of another user's session ends
+     * with the passkey owner as the identity of the next request.
+     *
+     * @return void
+     */
+    public function testLoginFinishWithRealSessionAuthenticator(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $authentication = new AuthenticationService();
+        $authentication->loadAuthenticator('Authentication.Session');
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $authentication);
+        $session = $request->getSession();
+        $session->write('CakePasskeys.login_challenges', ['k1']);
+        $session->write('Auth', $this->getTableLocator()->get('Users')->get(2));
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $result = $authentication->authenticate(new ServerRequest(['session' => $session]));
+        $this->assertTrue($result->isValid());
+        $identity = $result->getData();
+        $this->assertInstanceOf(EntityInterface::class, $identity);
+        $this->assertSame('alice@example.com', $identity->get('email'));
+    }
+
+    /**
+     * Copilot's case on #8: an earlier user id under userIdKey and an
+     * authenticator that keeps the identity elsewhere (or nowhere in the
+     * session). The id must be replaced, not kept.
+     *
+     * @param string|null $sessionKey Where the authenticator stores the identity.
+     *
+     * @return void
+     */
+    #[DataProvider('identityElsewhere')]
+    public function testLoginFinishReplacesStaleUserIdWhenIdentityLivesElsewhere(?string $sessionKey): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', new AuthenticationServiceSpy($sessionKey));
+        $request->getSession()->write('CakePasskeys.login_challenges', ['k1']);
+        $request->getSession()->write('Auth.id', 2);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame(1, (int)$request->getSession()->read('Auth.id'));
+    }
+
+    /**
+     * @return array<string, array<string|null>>
+     */
+    public static function identityElsewhere(): array
+    {
+        return ['other session key' => ['Identity'], 'not in the session' => [null]];
     }
 
     /**

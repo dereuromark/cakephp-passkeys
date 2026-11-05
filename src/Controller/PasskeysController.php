@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CakePasskeys\Controller;
 
+use ArrayAccess;
 use Cake\Controller\Controller;
 use Cake\Core\Configure;
 use Cake\Event\Event;
@@ -605,9 +606,16 @@ class PasskeysController extends Controller
             $this->setResponse($cleared['response']);
         }
 
+        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
+        if (!$identity instanceof ArrayAccess) {
+            // cakephp/authentication only stores entities and other ArrayAccess
+            // identities; anything else falls back to session.userIdKey,
+            // with the previous identity already cleared above.
+            return false;
+        }
+
         $session = $this->getRequest()->getSession();
         $before = $session->read($rootKey);
-        $identity = $user instanceof ConventionUserAdapter ? $user->getEntity() : $user;
         $result = $service->persistIdentity($this->getRequest(), $this->getResponse(), $identity);
         $this->setRequest($result['request']);
         $this->setResponse($result['response']);

@@ -11,6 +11,7 @@ use Cake\Http\MiddlewareQueue;
 use Cake\I18n\I18n;
 use Cake\TestSuite\TestCase;
 use CakePasskeys\CakePasskeysPlugin;
+use InvalidArgumentException;
 use function Cake\I18n\__d;
 
 class CakePasskeysPluginTest extends TestCase
@@ -101,6 +102,27 @@ class CakePasskeysPluginTest extends TestCase
         } finally {
             Cache::drop('passkeys_rate_limit');
             Cache::drop('short_base');
+            Configure::write('CakePasskeys.cache', 'default');
+        }
+    }
+
+    public function testBootstrapRejectsAMissingCacheConfig(): void
+    {
+        Cache::drop('passkeys_challenges');
+        Cache::drop('passkeys_rate_limit');
+        Configure::write('CakePasskeys.cache', 'does_not_exist');
+        $app = new class (CONFIG) extends BaseApplication
+        {
+            public function middleware(MiddlewareQueue $m): MiddlewareQueue
+            {
+                return $m;
+            }
+        };
+        try {
+            $this->expectException(InvalidArgumentException::class);
+            $this->expectExceptionMessage('does_not_exist');
+            (new CakePasskeysPlugin())->bootstrap($app);
+        } finally {
             Configure::write('CakePasskeys.cache', 'default');
         }
     }

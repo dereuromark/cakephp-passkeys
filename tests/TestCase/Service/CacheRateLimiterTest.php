@@ -111,6 +111,56 @@ class CacheRateLimiterTest extends TestCase
         $this->assertTrue($this->limiterAt(1_000_080)->hit('passkeys.login.w', 1, 60));
     }
 
+    /**
+     * An engine that accepts writes but never returns them would restart the
+     * count on every hit.
+     *
+     * @throws \LogicException
+     */
+    public function testRefusesWhenTheCountCannotBeReadBack(): void
+    {
+        $forgetful = new class extends CacheEngine {
+            public function set(string $key, mixed $value, DateInterval|int|null $ttl = null): bool
+            {
+                return true;
+            }
+
+            public function get(string $key, mixed $default = null): mixed
+            {
+                return $default;
+            }
+
+            public function increment(string $key, int $offset = 1): int|false
+            {
+                throw new LogicException('No increment.');
+            }
+
+            public function decrement(string $key, int $offset = 1): int|false
+            {
+                return false;
+            }
+
+            public function delete(string $key): bool
+            {
+                return true;
+            }
+
+            public function clear(): bool
+            {
+                return true;
+            }
+
+            public function clearGroup(string $group): bool
+            {
+                return true;
+            }
+        };
+        Cache::drop(CacheRateLimiter::CACHE_CONFIG);
+        Cache::setConfig(CacheRateLimiter::CACHE_CONFIG, ['className' => $forgetful]);
+
+        $this->assertFalse($this->limiterAt(1_000_000)->hit('passkeys.login.forgetful', 5, 60));
+    }
+
     private function limiterAt(int $time): CacheRateLimiter
     {
         return new class ($time) extends CacheRateLimiter {

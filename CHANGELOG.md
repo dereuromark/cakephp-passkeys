@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - With `cakephp/authorization`, every plugin action failed the `requireAuthorizationCheck` guard. The plugin now marks them as checked.
 - A leftover `session.userIdKey` no longer counts as signed in when `cakephp/authentication` is loaded, so a logged-out browser cannot manage passkeys through it.
 - A sign-in without user verification removes an `mfa_satisfied` flag left by an earlier one.
+- A `CakePasskeys.cache` that names a missing cache config now fails at bootstrap with a clear message instead of on the first request.
+- An identity that `cakephp/authentication` cannot store (not `ArrayAccess`) no longer breaks the sign-in; the plugin falls back to `session.userIdKey`.
 
 ### Added
 
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- `webroot/aaguid-map.json`, an unused public copy of `resources/aaguid-map.json`.
 - Binding the rate limiter through the DI container. It never took effect, because the controller looked for a `container` request attribute that CakePHP does not set; use the `rateLimiter` key.
 
 ## [0.1.0] - 2026-10-07

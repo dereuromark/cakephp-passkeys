@@ -13,6 +13,7 @@ use Cake\I18n\I18n;
 use Cake\I18n\MessagesFileLoader;
 use Cake\I18n\Package;
 use Cake\Routing\RouteBuilder;
+use InvalidArgumentException;
 
 class CakePasskeysPlugin extends BasePlugin
 {
@@ -25,6 +26,8 @@ class CakePasskeysPlugin extends BasePlugin
 
     /**
      * @inheritDoc
+     *
+     * @throws \InvalidArgumentException
      */
     public function bootstrap(PluginApplicationInterface $app): void
     {
@@ -53,20 +56,26 @@ class CakePasskeysPlugin extends BasePlugin
         // engine config with `duration` overridden is the cleanest fix.
         // The `CakePasskeys.cache` key now means "base engine config to clone
         // from" rather than the engine the store writes to directly.
+        $baseEngine = (string)Configure::read('CakePasskeys.cache', 'default');
+        $baseConfig = Cache::getConfig($baseEngine);
+        $needsBase = !Cache::getConfig('passkeys_challenges') || !Cache::getConfig('passkeys_rate_limit');
+        if ($needsBase && !$baseConfig) {
+            throw new InvalidArgumentException(sprintf(
+                'CakePasskeys.cache names the cache config `%s`, which does not exist.',
+                $baseEngine,
+            ));
+        }
         if (!Cache::getConfig('passkeys_challenges')) {
-            $baseEngine = (string)Configure::read('CakePasskeys.cache', 'default');
-            $baseConfig = Cache::getConfig($baseEngine) ?? [];
             Cache::setConfig('passkeys_challenges', array_merge(
-                $baseConfig,
+                (array)$baseConfig,
                 ['duration' => (int)Configure::read('CakePasskeys.challengeTtl', 300)],
             ));
         }
         // Rate-limit buckets must outlive their window (at most a minute), or
         // a short base duration would reset a full bucket early.
         if (!Cache::getConfig('passkeys_rate_limit')) {
-            $baseEngine = (string)Configure::read('CakePasskeys.cache', 'default');
             Cache::setConfig('passkeys_rate_limit', array_merge(
-                Cache::getConfig($baseEngine) ?? [],
+                (array)$baseConfig,
                 ['duration' => '+1 hour'],
             ));
         }
