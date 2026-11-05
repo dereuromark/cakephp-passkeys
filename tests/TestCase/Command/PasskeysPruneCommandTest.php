@@ -205,6 +205,33 @@ class PasskeysPruneCommandTest extends TestCase
     /**
      * @return void
      */
+    public function testRechecksLastPasskeyBeforeEachDeletion(): void
+    {
+        $first = $this->seedAged(1, 'Old phone', 400, 100);
+        $second = $this->seedAged(1, 'Old tablet', 400, 90);
+        $active = $this->seedAged(1, 'Laptop', 400, 1);
+        $deleteActive = function () use ($active): void {
+            $this->getTableLocator()->get('CakePasskeys.Passkeys')->deleteAll(['id' => $active]);
+        };
+        EventManager::instance()->on('CakePasskeys.afterDelete', $deleteActive);
+
+        try {
+            $this->exec('passkeys prune --unused-for 30 --yes');
+        } finally {
+            EventManager::instance()->off('CakePasskeys.afterDelete', $deleteActive);
+        }
+
+        $this->assertExitSuccess();
+        $this->assertOutputContains('Passkeys deleted: 1.');
+        $this->assertOutputContains('Kept as the last passkey of their user: 1.');
+        $this->assertSame([$second], $this->remainingIds());
+        $this->assertCount(1, $this->events);
+        $this->assertSame($first, $this->events[0]->getData('event')->getPasskey()->id);
+    }
+
+    /**
+     * @return void
+     */
     public function testDryRunListsWithoutDeleting(): void
     {
         $old = $this->seedAged(1, 'Old phone', 400, 100);

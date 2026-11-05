@@ -135,6 +135,12 @@ class PasskeysPruneCommand extends Command
         $deleted = 0;
         foreach ($candidates as $passkey) {
             $userId = (string)$passkey->user_id;
+            // Passkeys may have been deleted elsewhere since the scan.
+            if (!$includeLast && !$table->exists(['user_id' => $passkey->user_id, 'id !=' => $passkey->id])) {
+                $kept++;
+
+                continue;
+            }
             // Conditional delete: a passkey used since the scan stays.
             $affected = $table->deleteAll(function (QueryExpression $exp) use ($passkey, $cutoff): QueryExpression {
                 return $exp->eq('id', $passkey->id)->add($this->unusedSince($exp, $cutoff, ''));
