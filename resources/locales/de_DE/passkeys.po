@@ -127,3 +127,5 @@ msgstr "Nichts gelöscht."
 
 msgid "Deleted passkey {0} ({1})."
 msgstr "Passkey {0} ({1}) gelöscht."
+msgid "This type of passkey is not allowed here."
+msgstr "Diese Art von Passkey ist hier nicht erlaubt."

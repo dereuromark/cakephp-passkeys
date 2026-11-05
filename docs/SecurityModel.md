@@ -63,6 +63,25 @@ The class implements `CakePasskeys\Contract\RateLimiterInterface`. `false` turns
 | `passkeys.reauth_finish.<user id>` | 20 per minute |
 | `passkeys.manage.<user id>` (rename and delete together) | 30 per minute |
 
+### Authenticator allowlist
+
+`allowedAaguids` lists the AAGUIDs (authenticator models) a new passkey may come from:
+
+```php
+'CakePasskeys' => [
+    'allowedAaguids' => [
+        'cb69481e-8ff7-4039-93ec-0a2729a154a8', // YubiKey 5
+        'ee882879-721c-4913-9775-3dfcce97072a', // YubiKey 5 Series
+    ],
+],
+```
+
+Values are UUIDs, compared case-insensitively. `null` (the default) or an empty list accepts any authenticator. With a list set, `register/finish` refuses any other AAGUID with a 400, including the all-zero AAGUID that authenticators report when they share no model information, since it cannot be matched. Only new registrations are checked: passkeys stored before the list was set, or before a model was removed from it, keep signing in. Delete them yourself if they must go.
+
+What it does not do: prove the make. The AAGUID is a value the authenticator writes into its own response. With attestation `none` nothing signs it, so a modified or software authenticator can report any AAGUID it likes. The list is a policy filter that keeps honest users on the devices you support; it is not attestation-backed evidence.
+
+The plugin does not verify attestation statements. It registers only the `none` attestation format with `web-auth/webauthn-lib` and checks no certificates against trust anchors. Setting `ceremony.attestation` to `direct` does not change that: a response that carries a statement in another format (`packed`, `tpm`, `apple`, ...) is refused, so registrations fail. If you need guarantees about the hardware, you have to verify attestation yourself: request `direct` attestation, add the attestation statement formats to the library and check the statements against the FIDO Metadata Service or your vendor's roots. That is outside this plugin.
+
 ### Say who the current user is
 
 The endpoints for registering, renaming, deleting and re-confirming trust the user id they are given. See "Who is signed in" in the README. If you set `identityResolver`, it must return the id of the authenticated user of this request and nothing a client can choose.
@@ -73,7 +92,7 @@ The endpoints for registering, renaming, deleting and re-confirming trust the us
 - **Email hint off by default.** With `login.emailHint` enabled, `login/start` returns the credential ids for an email address. Anyone can then test whether an address has passkeys. It is only needed for security keys that store no account information.
 - **Synced passkeys.** iCloud Keychain and Google Password Manager report a counter of 0. A counter of 0 is accepted every time; any other value has to increase.
 - **Algorithms.** ES256 and RS256 are offered for new passkeys. EdDSA is also verified at sign-in when ext-sodium is loaded, so passkeys an app registered before using the plugin keep working.
-- **Attestation.** Requested as `none`. Any authenticator is accepted, and its make is not verified. The device label shown in the manager comes from the AAGUID the authenticator reports and is informational.
+- **Attestation.** Requested as `none`, and not verified. Any authenticator is accepted unless `allowedAaguids` is set, and its make is not proven either way. The device label shown in the manager comes from the AAGUID the authenticator reports and is informational.
 - **Error messages.** A failed check answers with HTTP 400 and a fixed message; the reason is not sent to the browser. A full rate-limit bucket answers 429, a refusal by `beforeRegister` or `beforeDelete` 403.
 
 ## Not covered
