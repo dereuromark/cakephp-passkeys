@@ -657,6 +657,34 @@ class PasskeysControllerTest extends TestCase
     }
 
     /**
+     * Signing in with a passkey while another user's identity is still in the
+     * session must replace it, not keep it.
+     *
+     * @return void
+     */
+    public function testLoginFinishReplacesIdentityAlreadyInSession(): void
+    {
+        $passkeyId = $this->seedPasskey(1, 'Stub');
+        $passkey = $this->getTableLocator()->get('CakePasskeys.Passkeys')->get($passkeyId);
+        $service = $this->createStub(WebAuthnService::class);
+        $service->method('finishLogin')->willReturn($passkey);
+
+        $auth = new AuthenticationServiceSpy();
+        $request = (new ServerRequest([
+            'environment' => ['REQUEST_METHOD' => 'POST'],
+        ]))->withParsedBody(['response' => [], 'challengeKey' => 'k1'])
+            ->withAttribute('authentication', $auth);
+        $session = $request->getSession();
+        $session->write('CakePasskeys.login_challenges', ['k1']);
+        $bob = $this->getTableLocator()->get('Users')->get(2);
+        $session->write('Auth', $bob);
+
+        $this->controllerWith($request, $service)->loginFinish();
+
+        $this->assertSame('alice@example.com', $session->read('Auth')->get('email'));
+    }
+
+    /**
      * A host whose authentication service does not keep the identity in the
      * session still gets the configured session key.
      *

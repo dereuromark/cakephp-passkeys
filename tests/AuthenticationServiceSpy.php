@@ -35,7 +35,8 @@ class AuthenticationServiceSpy
     public function persistIdentity(ServerRequest $request, Response $response, mixed $identity): array
     {
         $this->persisted[] = $identity;
-        if ($this->sessionKey !== null) {
+        // Like the Session authenticator: an identity already stored stays.
+        if ($this->sessionKey !== null && !$request->getSession()->check($this->sessionKey)) {
             $request->getSession()->write($this->sessionKey, $identity);
         }
 
@@ -43,5 +44,20 @@ class AuthenticationServiceSpy
             'request' => $request->withAttribute('identity', $identity),
             'response' => $response->withHeader('X-Spy', 'persisted'),
         ];
+    }
+
+    /**
+     * @param \Cake\Http\ServerRequest $request
+     * @param \Cake\Http\Response $response
+     *
+     * @return array<string, mixed>
+     */
+    public function clearIdentity(ServerRequest $request, Response $response): array
+    {
+        if ($this->sessionKey !== null) {
+            $request->getSession()->delete($this->sessionKey);
+        }
+
+        return ['request' => $request->withoutAttribute('identity'), 'response' => $response];
     }
 }
